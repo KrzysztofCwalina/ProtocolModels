@@ -52,3 +52,10 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+/.vs/ProjectEvaluation/protocolmodels.metadata.v9.bin
+*.bin
+/.vs/ProtocolModels/CopilotIndices/17.14.698.11175
+/.vs/ProtocolModels/DesignTimeBuild
+/.vs/ProtocolModels/FileContentIndex
+/.vs/ProtocolModels/v17/TestStore/0
+/.vs/ProtocolModels/v17
