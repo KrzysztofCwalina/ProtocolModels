@@ -13,10 +13,13 @@ public class Tests
         input.Json.Set("temperature"u8, 90d);
         input.Json.Set("category"u8, "facts");
         input.Json.Set("numbers"u8, "[3.14, 7]"u8);
-        
+        input.Json.Set("complex"u8, "{ \"name\": \"foo\", \"value\": 100 }"u8);
+
         Assert.That(input.Category, Is.EqualTo("facts"));
         Assert.That(input.Numbers, Is.EqualTo([3.14, 7d]));
         Assert.That(input.Names, Is.EqualTo(["my first building", "PI"]));
+        Assert.That(input.Json.GetDouble("temperature"u8), Is.EqualTo(90d));    
+        Assert.That(input.Json.GetString("category"u8), Is.EqualTo("facts"));
 
         // TODO: implement support for setting array elements
         // TOOD: implement += <bytes> operator

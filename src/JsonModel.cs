@@ -154,7 +154,7 @@ public abstract class JsonModel<T> : IJsonModel<T>, IJsonModel
             }
             if (type == typeof(string))
             {
-                value = Encoding.UTF8.GetBytes((string)objValue);
+                writer.WriteStringValue((string)objValue);
                 return SetValue(out value, stream, writer);
             }
             if(type == typeof(float))

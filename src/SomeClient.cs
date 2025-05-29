@@ -144,7 +144,12 @@ public class InputModel : JsonModel<InputModel>
 
     protected override bool TryGetProperty(ReadOnlySpan<byte> name, out object value)
     {
-        throw new NotImplementedException();
+        if(name.SequenceEqual("category"u8))
+        {
+            value = Category;
+            return true;
+        }
+        throw new NotImplementedException($"Property '{Encoding.UTF8.GetString(name)}' is not implemented for InputModel.");
     }
 
     protected override bool TrySetProperty(ReadOnlySpan<byte> name, object value)
