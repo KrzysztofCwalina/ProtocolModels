@@ -1,113 +1,6 @@
 ﻿using System.ClientModel.Primitives;
-using System.ComponentModel;
 using System.Text;
 using System.Text.Json;
-
-// scenarios:
-// 1. Add a property to output (serialization only)
-// 2. Ignore a property from input (serialization)
-// 3. Change property type in output (serialization only)
-// 4. Ignore a property from output (deserialization)
-// 5. Read spillover property (deserialization)
-
-public readonly struct JsonView
-{
-    private readonly IJsonModel _model;
-
-    internal JsonView(IJsonModel model)
-    {
-        _model = model;
-    }
-
-    public void Set(ReadOnlySpan<byte> name, string value)
-    {
-        MemoryStream stream = new(24);
-        Utf8JsonWriter writer = new Utf8JsonWriter(stream);
-        writer.WriteStringValue(value);
-        writer.Flush();
-        ReadOnlySpan<byte> json = stream.GetBuffer().AsSpan(0, (int)stream.Position);
-        Set(name, json);
-    }
-
-    public void Set(ReadOnlySpan<byte> name, double value)
-    {
-        MemoryStream stream = new(24);
-        Utf8JsonWriter writer = new Utf8JsonWriter(stream);
-        writer.WriteNumberValue(value);
-        writer.Flush();
-        ReadOnlySpan<byte> json = stream.GetBuffer().AsSpan(0, (int)stream.Position);
-        Set(name, json);
-    }
-
-    // add or change value
-    public void Set(ReadOnlySpan<byte> name, ReadOnlySpan<byte> json)
-        => _model.Set(name, json);
-    public void Set(string name, ReadOnlySpan<byte> json)
-        => Set(Encoding.UTF8.GetBytes(name), json);
-
-    // TODO: add Set overloads for other types (int, bool, etc.)
-
-    public string GetString(ReadOnlySpan<byte> name)
-    {
-        if (_model.TryGet(name, out ReadOnlySpan<byte> value) && value.Length > 0)
-            return value.AsString();
-        throw new KeyNotFoundException($"Property '{Encoding.UTF8.GetString(name)}' not found or has no value.");
-    }
-    public double GetDouble(ReadOnlySpan<byte> name)
-    {
-        if (_model.TryGet(name, out ReadOnlySpan<byte> value) && value.Length > 0)
-            return value.AsDouble();
-        throw new KeyNotFoundException($"Property '{Encoding.UTF8.GetString(name)}' not found or has no value.");
-    }
-    // get spillover (or real?) property or array value
-    public bool TryGet(string name, out ReadOnlySpan<byte> value)
-        => TryGet(Encoding.UTF8.GetBytes(name), out value);
-    public bool TryGet(ReadOnlySpan<byte> name, out ReadOnlySpan<byte> value) 
-        => _model.TryGet(name, out value);
-
-    [EditorBrowsable(EditorBrowsableState.Never)]
-    public void Write(Utf8JsonWriter writer, ModelReaderWriterOptions options)
-        => _model.WriteAdditionalProperties(writer, options);
-}
-
-public struct JsonProperties
-{
-    private Dictionary<string, ReadOnlyMemory<byte>> _properties;
-    public void Set(string name, ReadOnlySpan<byte> value)
-    {
-        if (_properties == null)
-            _properties = new Dictionary<string, ReadOnlyMemory<byte>>();
-        _properties[name] = value.ToArray();
-    }
-    public void Set(ReadOnlySpan<byte> name, ReadOnlySpan<byte> value)
-        => Set(Encoding.UTF8.GetString(name), value);
-    public bool TryGet(string name, out ReadOnlySpan<byte> value)
-    {
-        ReadOnlyMemory<byte> memory = default;
-        if (_properties != null && _properties.TryGetValue(name, out memory))
-        {
-            value = memory.Span;
-            return true;
-        }
-        value = default;
-        return false;
-    }
-    public bool TryGet(ReadOnlySpan<byte> name, out ReadOnlySpan<byte> value)
-    {
-        string strName = Encoding.UTF8.GetString(name);
-        return TryGet(strName, out value);
-    }
-
-    internal void Write(Utf8JsonWriter writer, ModelReaderWriterOptions options)
-    {
-        foreach (var kvp in _properties)
-        {
-            writer.WritePropertyName(kvp.Key);
-            writer.WriteRawValue(kvp.Value.Span, true); // true to escape the value
-        }
-    }
-
-}
 
 // it's internal, so we can modify it later
 internal interface IJsonModel
@@ -273,4 +166,42 @@ public abstract class JsonModel<T> : IJsonModel<T>, IJsonModel
     #endregion
 }
 
+public struct JsonProperties
+{
+    private Dictionary<string, ReadOnlyMemory<byte>> _properties;
+    public void Set(string name, ReadOnlySpan<byte> value)
+    {
+        if (_properties == null)
+            _properties = new Dictionary<string, ReadOnlyMemory<byte>>();
+        _properties[name] = value.ToArray();
+    }
+    public void Set(ReadOnlySpan<byte> name, ReadOnlySpan<byte> value)
+        => Set(Encoding.UTF8.GetString(name), value);
+    public bool TryGet(string name, out ReadOnlySpan<byte> value)
+    {
+        ReadOnlyMemory<byte> memory = default;
+        if (_properties != null && _properties.TryGetValue(name, out memory))
+        {
+            value = memory.Span;
+            return true;
+        }
+        value = default;
+        return false;
+    }
+    public bool TryGet(ReadOnlySpan<byte> name, out ReadOnlySpan<byte> value)
+    {
+        string strName = Encoding.UTF8.GetString(name);
+        return TryGet(strName, out value);
+    }
+
+    internal void Write(Utf8JsonWriter writer, ModelReaderWriterOptions options)
+    {
+        foreach (var kvp in _properties)
+        {
+            writer.WritePropertyName(kvp.Key);
+            writer.WriteRawValue(kvp.Value.Span, true); // true to escape the value
+        }
+    }
+
+}
 

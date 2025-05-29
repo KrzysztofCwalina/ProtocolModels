@@ -15,6 +15,8 @@ public class Tests
         input.Json.Set("numbers"u8, "[3.14, 7]"u8);
         input.Json.Set("complex"u8, "{ \"name\": \"foo\", \"value\": 100 }"u8);
 
+        JsonView complex = input.Json["complex"];
+        Assert.That(complex.GetDouble("value"u8), Is.EqualTo(100));
         Assert.That(input.Category, Is.EqualTo("facts"));
         Assert.That(input.Numbers, Is.EqualTo([3.14, 7d]));
         Assert.That(input.Names, Is.EqualTo(["my first building", "PI"]));
@@ -25,6 +27,7 @@ public class Tests
         // TOOD: implement += <bytes> operator
         // TODO: type hierarchy
         // TODO: new clr complex property.
+        // TOOD: read complex properties from JSON
 
         BinaryData json = ModelReaderWriter.Write(input);
 

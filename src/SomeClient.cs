@@ -1,8 +1,14 @@
 ﻿using System.ClientModel;
 using System.ClientModel.Primitives;
-using System.ComponentModel;
 using System.Text;
 using System.Text.Json;
+
+// scenarios:
+// 1. Add a property to output (serialization only)
+// 2. Ignore a property from input (serialization)
+// 3. Change property type in output (serialization only)
+// 4. Ignore a property from output (deserialization)
+// 5. Read spillover property (deserialization)
 
 public partial class SomeClient
 {
@@ -149,7 +155,18 @@ public class InputModel : JsonModel<InputModel>
             value = Category;
             return true;
         }
-        throw new NotImplementedException($"Property '{Encoding.UTF8.GetString(name)}' is not implemented for InputModel.");
+        if(name.SequenceEqual("names"u8))
+        {
+            value = Names;
+            return true;
+        }
+        if(name.SequenceEqual("numbers"u8))
+        {
+            value = Numbers;
+            return true;
+        }
+        value = default;
+        return false;
     }
 
     protected override bool TrySetProperty(ReadOnlySpan<byte> name, object value)

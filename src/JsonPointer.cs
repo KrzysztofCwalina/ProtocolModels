@@ -5,10 +5,6 @@ using System.Text;
 using System.Diagnostics;
 using System.Buffers.Text;
 
-public static class JsonPointerExtensions
-{
-
-}
 public static class JsonPointer
 {
     public static string AsString(this ReadOnlySpan<byte> json)
@@ -36,6 +32,9 @@ public static class JsonPointer
 
     public static double GetDouble(this BinaryData json, ReadOnlySpan<byte> jsonPointer)
     => json.Find(jsonPointer).GetDouble();
+
+    public static double GetDouble(this ReadOnlySpan<byte> json, ReadOnlySpan<byte> jsonPointer)
+        => json.Find(jsonPointer).GetDouble();
 
     // TODO (pri 0): implement arrays, e.g. "/addresses/0/street"u8
     // TODO (pri 1): implement object graphs, e.g "/address/street"u8
