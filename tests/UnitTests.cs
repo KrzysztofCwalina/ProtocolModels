@@ -77,4 +77,30 @@ public class Tests
         Assert.That(input.Numbers[2], Is.EqualTo(10));
         Assert.That(input.Numbers, Is.EqualTo([1, 2, 10]));
     }
+
+    [Test]
+    public void ArrayItemSetterIndexerSyntax()
+    {
+        InputModel input = new();
+        input.Numbers = [1, 2, 3];
+        
+        // Test the exact syntax from the issue description
+        input.Json["numbers\\2"u8] = 10;
+        
+        // Verify the array was modified
+        Assert.That(input.Numbers[2], Is.EqualTo(10));
+        Assert.That(input.Numbers, Is.EqualTo([1, 2, 10]));
+        
+        // Also test with the exact example from the issue
+        // First, create an array property 'foo'
+        input.Json.Set("foo"u8, "[1, 2, 3, 4]"u8);
+        
+        // Now test the exact syntax: input.Json["foo\3"u8] = 10;
+        input.Json["foo\\3"u8] = 10;
+        
+        // Verify the 'foo' array was modified
+        double[] fooArray = input.Json.GetArray<double>("foo"u8);
+        Assert.That(fooArray[3], Is.EqualTo(10));
+        Assert.That(fooArray, Is.EqualTo([1, 2, 3, 10]));
+    }
 }

@@ -15,7 +15,15 @@ internal interface IJsonModel
 public abstract class JsonModel<T> : IJsonModel<T>, IJsonModel
 {
     private JsonProperties additionalProperties = new();
-    public JsonView Json => new JsonView(this);
+    private JsonView? _json;
+    public JsonView Json 
+    { 
+        get 
+        {
+            _json ??= new JsonView(this);
+            return _json;
+        }
+    }
 
     protected abstract bool TryGetProperty(ReadOnlySpan<byte> name, out object value);
     protected abstract Type GetPropertyType(ReadOnlySpan<byte> name);

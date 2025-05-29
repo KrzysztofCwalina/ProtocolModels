@@ -3,7 +3,7 @@ using System.ComponentModel;
 using System.Text;
 using System.Text.Json;
 
-public readonly struct JsonView
+public class JsonView
 {
     private readonly IJsonModel _model;
     private readonly byte[] _path;
@@ -48,6 +48,12 @@ public readonly struct JsonView
     public JsonView this[string name]
     {
         get => new JsonView(_model, Encoding.UTF8.GetBytes(name));
+    }
+    
+    public object this[ReadOnlySpan<byte> name]
+    {
+        get => throw new NotImplementedException("Getting values by ReadOnlySpan<byte> not yet implemented");
+        set => SetArrayItem(name, value);
     }
     
     // Special Set method that handles array indexing syntax
