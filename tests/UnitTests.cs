@@ -3,6 +3,44 @@
 public class Tests
 {
     [Test]
+    public void ArrayItemSetter()
+    {
+        InputModel input = new();
+        
+        // Test setting array items using the slash notation
+        input.Json.Set("foo/3"u8, 10.5);
+        input.Json.Set("bar/0"u8, "test");
+        input.Json.Set("baz/1"u8, 42);
+        
+        // Test that arrays were created with proper padding
+        double[] fooArray = input.Json.GetArray<double>("foo"u8);
+        Assert.That(fooArray.Length, Is.EqualTo(4));
+        Assert.That(fooArray[3], Is.EqualTo(10.5));
+        Assert.That(fooArray[0], Is.EqualTo(0.0)); // Should be padded with defaults
+        
+        string[] barArray = input.Json.GetArray<string>("bar"u8);
+        Assert.That(barArray.Length, Is.EqualTo(1));
+        Assert.That(barArray[0], Is.EqualTo("test"));
+        
+        // Verify the values can be retrieved using array access syntax
+        Assert.That(input.Json.GetDouble("foo/3"u8), Is.EqualTo(10.5));
+        Assert.That(input.Json.GetString("bar/0"u8), Is.EqualTo("test"));
+        
+        // Test updating existing arrays
+        input.Json.Set("numbers"u8, "[1.0, 2.0, 3.0]"u8);
+        input.Json.Set("numbers/1"u8, 99.9);
+        
+        double[] numbersArray = input.Json.GetArray<double>("numbers"u8);
+        Assert.That(numbersArray.Length, Is.EqualTo(3));
+        Assert.That(numbersArray[0], Is.EqualTo(1.0));
+        Assert.That(numbersArray[1], Is.EqualTo(99.9)); // Modified
+        Assert.That(numbersArray[2], Is.EqualTo(3.0));
+        
+        // Verify we can retrieve the modified value
+        Assert.That(input.Json.GetDouble("numbers/1"u8), Is.EqualTo(99.9));
+    }
+
+    [Test] 
     public void Models()
     {
         InputModel input = new();
