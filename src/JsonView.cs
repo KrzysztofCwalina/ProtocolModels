@@ -65,7 +65,11 @@ public readonly struct JsonView
         if (_path.Length > 0)
         {
             if (!_model.TryGet(_path, out value)) throw new KeyNotFoundException();
-            return value.GetDouble("/value"u8); // TODO: do not hardcode
+            
+            Span<byte> path = stackalloc byte[name.Length+ 1];
+            path[0] = (byte)'/';
+            name.CopyTo(path.Slice(1));
+            return value.GetDouble(path);
         }
         else
         {
