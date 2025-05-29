@@ -151,25 +151,37 @@ public abstract class JsonModel<T> : IJsonModel<T>, IJsonModel
         JsonElement root = jsonDocument.RootElement;;
         if (ptype == typeof(double[]))
         {
-            double[] array = root.EnumerateArray().Select(x => x.GetDouble()).ToArray();
+            var list = new List<double>();
+            foreach (var element in root.EnumerateArray())
+                list.Add(element.GetDouble());
+            double[] array = list.ToArray();
             if (TrySetProperty(name, array))
                 return;
         }
         else if (ptype == typeof(string[]))
         {
-            string[] array = root.EnumerateArray().Select(x => x.GetString() ?? string.Empty).ToArray();
+            var list = new List<string>();
+            foreach (var element in root.EnumerateArray())
+                list.Add(element.GetString() ?? string.Empty);
+            string[] array = list.ToArray();
             if (TrySetProperty(name, array))
                 return;
         }
         else if (ptype == typeof(int[]))
         {
-            int[] array = root.EnumerateArray().Select(x => x.GetInt32()).ToArray();
+            var list = new List<int>();
+            foreach (var element in root.EnumerateArray())
+                list.Add(element.GetInt32());
+            int[] array = list.ToArray();
             if (TrySetProperty(name, array))
                 return;
         }
         else if (ptype == typeof(float[]))
         {
-            float[] array = root.EnumerateArray().Select(x => x.GetSingle()).ToArray();
+            var list = new List<float>();
+            foreach (var element in root.EnumerateArray())
+                list.Add(element.GetSingle());
+            float[] array = list.ToArray();
             if (TrySetProperty(name, array))
                 return;
         }

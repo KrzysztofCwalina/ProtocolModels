@@ -18,20 +18,10 @@ public readonly struct JsonView
         _path = path;
     }
 
-    private static int FindSlashIndex(ReadOnlySpan<byte> span)
-    {
-        return span.IndexOf((byte)'/');
-    }
-
-    private static bool TryParseIndex(ReadOnlySpan<byte> indexSpan, out int index)
-    {
-        return Utf8Parser.TryParse(indexSpan, out index, out _);
-    }
-
     public void Set(ReadOnlySpan<byte> name, string value)
     {
         // Check if this is an array index operation (contains '/')
-        int slashIndex = FindSlashIndex(name);
+        int slashIndex = name.IndexOf((byte)'/');
         if (slashIndex > 0)
         {
             SetArrayItem(name.Slice(0, slashIndex), name.Slice(slashIndex + 1), value);
@@ -49,7 +39,7 @@ public readonly struct JsonView
     public void Set(ReadOnlySpan<byte> name, double value)
     {
         // Check if this is an array index operation (contains '/')
-        int slashIndex = FindSlashIndex(name);
+        int slashIndex = name.IndexOf((byte)'/');
         if (slashIndex > 0)
         {
             SetArrayItem(name.Slice(0, slashIndex), name.Slice(slashIndex + 1), value);
@@ -67,7 +57,7 @@ public readonly struct JsonView
     public void Set(ReadOnlySpan<byte> name, int value)
     {
         // Check if this is an array index operation (contains '/')
-        int slashIndex = FindSlashIndex(name);
+        int slashIndex = name.IndexOf((byte)'/');
         if (slashIndex > 0)
         {
             SetArrayItem(name.Slice(0, slashIndex), name.Slice(slashIndex + 1), value);
@@ -92,7 +82,7 @@ public readonly struct JsonView
 
     private void SetArrayItem<T>(ReadOnlySpan<byte> arrayProperty, ReadOnlySpan<byte> indexSpan, T value)
     {
-        if (!TryParseIndex(indexSpan, out int index))
+        if (!Utf8Parser.TryParse(indexSpan, out int index, out _))
         {
             throw new ArgumentException($"Invalid array index: {Encoding.UTF8.GetString(indexSpan)}");
         }
@@ -203,7 +193,7 @@ public readonly struct JsonView
     public string GetString(ReadOnlySpan<byte> name)
     {
         // Check if this is an array index operation (contains '/')
-        int slashIndex = FindSlashIndex(name);
+        int slashIndex = name.IndexOf((byte)'/');
         if (slashIndex > 0)
         {
             return GetArrayItem<string>(name.Slice(0, slashIndex), name.Slice(slashIndex + 1));
@@ -217,7 +207,7 @@ public readonly struct JsonView
     public double GetDouble(ReadOnlySpan<byte> name)
     {
         // Check if this is an array index operation (contains '/')
-        int slashIndex = FindSlashIndex(name);
+        int slashIndex = name.IndexOf((byte)'/');
         if (slashIndex > 0)
         {
             return GetArrayItem<double>(name.Slice(0, slashIndex), name.Slice(slashIndex + 1));
@@ -246,7 +236,7 @@ public readonly struct JsonView
 
     private T GetArrayItem<T>(ReadOnlySpan<byte> arrayProperty, ReadOnlySpan<byte> indexSpan)
     {
-        if (!TryParseIndex(indexSpan, out int index))
+        if (!Utf8Parser.TryParse(indexSpan, out int index, out _))
         {
             throw new ArgumentException($"Invalid array index: {Encoding.UTF8.GetString(indexSpan)}");
         }
@@ -375,14 +365,14 @@ public ref struct JsonArrayElement
         ReadOnlySpan<byte> pathSpan = _path.AsSpan();
         
         // Check if this is an array index operation (contains '/')
-        int slashIndex = FindSlashIndex(pathSpan);
+        int slashIndex = pathSpan.IndexOf((byte)'/');
         if (slashIndex > 0)
         {
             // Parse array property name and index
             ReadOnlySpan<byte> propertyName = pathSpan.Slice(0, slashIndex);
             ReadOnlySpan<byte> indexSpan = pathSpan.Slice(slashIndex + 1);
             
-            if (TryParseIndex(indexSpan, out int arrayIndex))
+            if (Utf8Parser.TryParse(indexSpan, out int arrayIndex, out _))
             {
                 SetArrayItem(propertyName, arrayIndex, value);
                 return;
@@ -393,15 +383,7 @@ public ref struct JsonArrayElement
         SetProperty(pathSpan, value);
     }
 
-    private static int FindSlashIndex(ReadOnlySpan<byte> span)
-    {
-        return span.IndexOf((byte)'/');
-    }
 
-    private static bool TryParseIndex(ReadOnlySpan<byte> indexSpan, out int index)
-    {
-        return Utf8Parser.TryParse(indexSpan, out index, out _);
-    }
 
     private void SetProperty<T>(ReadOnlySpan<byte> name, T value)
     {
