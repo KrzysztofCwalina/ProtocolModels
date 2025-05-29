@@ -17,14 +17,39 @@ public readonly struct JsonView
         _path = path;
     }
 
+    private static int FindSlashIndex(ReadOnlySpan<byte> span)
+    {
+        for (int i = 0; i < span.Length; i++)
+        {
+            if (span[i] == (byte)'/')
+                return i;
+        }
+        return -1;
+    }
+
+    private static bool TryParseIndex(ReadOnlySpan<byte> indexSpan, out int index)
+    {
+        index = 0;
+        if (indexSpan.Length == 0)
+            return false;
+
+        for (int i = 0; i < indexSpan.Length; i++)
+        {
+            byte b = indexSpan[i];
+            if (b < (byte)'0' || b > (byte)'9')
+                return false;
+            index = index * 10 + (b - (byte)'0');
+        }
+        return true;
+    }
+
     public void Set(ReadOnlySpan<byte> name, string value)
     {
         // Check if this is an array index operation (contains '/')
-        string nameString = Encoding.UTF8.GetString(name);
-        int slashIndex = nameString.IndexOf('/');
+        int slashIndex = FindSlashIndex(name);
         if (slashIndex > 0)
         {
-            SetArrayItem(nameString, value);
+            SetArrayItem(name.Slice(0, slashIndex), name.Slice(slashIndex + 1), value);
             return;
         }
 
@@ -39,11 +64,10 @@ public readonly struct JsonView
     public void Set(ReadOnlySpan<byte> name, double value)
     {
         // Check if this is an array index operation (contains '/')
-        string nameString = Encoding.UTF8.GetString(name);
-        int slashIndex = nameString.IndexOf('/');
+        int slashIndex = FindSlashIndex(name);
         if (slashIndex > 0)
         {
-            SetArrayItem(nameString, value);
+            SetArrayItem(name.Slice(0, slashIndex), name.Slice(slashIndex + 1), value);
             return;
         }
 
@@ -58,11 +82,10 @@ public readonly struct JsonView
     public void Set(ReadOnlySpan<byte> name, int value)
     {
         // Check if this is an array index operation (contains '/')
-        string nameString = Encoding.UTF8.GetString(name);
-        int slashIndex = nameString.IndexOf('/');
+        int slashIndex = FindSlashIndex(name);
         if (slashIndex > 0)
         {
-            SetArrayItem(nameString, value);
+            SetArrayItem(name.Slice(0, slashIndex), name.Slice(slashIndex + 1), value);
             return;
         }
 
@@ -82,18 +105,14 @@ public readonly struct JsonView
 
     // TODO: add Set overloads for other types (int, bool, etc.)
 
-    private void SetArrayItem<T>(string path, T value)
+    private void SetArrayItem<T>(ReadOnlySpan<byte> propertyName, ReadOnlySpan<byte> indexSpan, T value)
     {
-        int slashIndex = path.IndexOf('/');
-        string propertyName = path.Substring(0, slashIndex);
-        string indexString = path.Substring(slashIndex + 1);
-        
-        if (!int.TryParse(indexString, out int arrayIndex))
+        if (!TryParseIndex(indexSpan, out int arrayIndex))
         {
-            throw new ArgumentException($"Invalid array index: {indexString}");
+            throw new ArgumentException($"Invalid array index: {Encoding.UTF8.GetString(indexSpan)}");
         }
 
-        byte[] propertyNameBytes = Encoding.UTF8.GetBytes(propertyName);
+        byte[] propertyNameBytes = propertyName.ToArray();
         
         // Get current array
         if (!_model.TryGet(propertyNameBytes, out ReadOnlySpan<byte> currentJson))
@@ -107,7 +126,7 @@ public readonly struct JsonView
         var reader = new Utf8JsonReader(currentJson);
         if (!reader.Read() || reader.TokenType != JsonTokenType.StartArray)
         {
-            throw new InvalidOperationException($"Property '{propertyName}' is not an array");
+            throw new InvalidOperationException($"Property '{Encoding.UTF8.GetString(propertyName)}' is not an array");
         }
 
         // Read all array elements
@@ -240,11 +259,10 @@ public readonly struct JsonView
     public string GetString(ReadOnlySpan<byte> name)
     {
         // Check if this is an array index operation (contains '/')
-        string nameString = Encoding.UTF8.GetString(name);
-        int slashIndex = nameString.IndexOf('/');
+        int slashIndex = FindSlashIndex(name);
         if (slashIndex > 0)
         {
-            return GetArrayItem<string>(nameString);
+            return GetArrayItem<string>(name.Slice(0, slashIndex), name.Slice(slashIndex + 1));
         }
 
         if (_model.TryGet(name, out ReadOnlySpan<byte> value) && value.Length > 0)
@@ -255,11 +273,10 @@ public readonly struct JsonView
     public double GetDouble(ReadOnlySpan<byte> name)
     {
         // Check if this is an array index operation (contains '/')
-        string nameString = Encoding.UTF8.GetString(name);
-        int slashIndex = nameString.IndexOf('/');
+        int slashIndex = FindSlashIndex(name);
         if (slashIndex > 0)
         {
-            return GetArrayItem<double>(nameString);
+            return GetArrayItem<double>(name.Slice(0, slashIndex), name.Slice(slashIndex + 1));
         }
 
         //Span<byte> fullPath = stackalloc byte[_path.Length + name.Length + 1];
@@ -283,30 +300,26 @@ public readonly struct JsonView
         }
     }
 
-    private T GetArrayItem<T>(string path)
+    private T GetArrayItem<T>(ReadOnlySpan<byte> propertyName, ReadOnlySpan<byte> indexSpan)
     {
-        int slashIndex = path.IndexOf('/');
-        string propertyName = path.Substring(0, slashIndex);
-        string indexString = path.Substring(slashIndex + 1);
-        
-        if (!int.TryParse(indexString, out int arrayIndex))
+        if (!TryParseIndex(indexSpan, out int arrayIndex))
         {
-            throw new ArgumentException($"Invalid array index: {indexString}");
+            throw new ArgumentException($"Invalid array index: {Encoding.UTF8.GetString(indexSpan)}");
         }
 
-        byte[] propertyNameBytes = Encoding.UTF8.GetBytes(propertyName);
+        byte[] propertyNameBytes = propertyName.ToArray();
         
         // Get current array
         if (!_model.TryGet(propertyNameBytes, out ReadOnlySpan<byte> currentJson))
         {
-            throw new KeyNotFoundException($"Property '{propertyName}' not found");
+            throw new KeyNotFoundException($"Property '{Encoding.UTF8.GetString(propertyName)}' not found");
         }
 
         // Parse existing array
         var reader = new Utf8JsonReader(currentJson);
         if (!reader.Read() || reader.TokenType != JsonTokenType.StartArray)
         {
-            throw new InvalidOperationException($"Property '{propertyName}' is not an array");
+            throw new InvalidOperationException($"Property '{Encoding.UTF8.GetString(propertyName)}' is not an array");
         }
 
         int currentIndex = 0;
@@ -418,17 +431,16 @@ public ref struct JsonArrayElement
     private void SetValue<T>(T value)
     {
         ReadOnlySpan<byte> pathSpan = _path.AsSpan();
-        string pathString = Encoding.UTF8.GetString(pathSpan);
         
         // Check if this is an array index operation (contains '/')
-        int slashIndex = pathString.IndexOf('/');
+        int slashIndex = FindSlashIndex(pathSpan);
         if (slashIndex > 0)
         {
             // Parse array property name and index
-            string propertyName = pathString.Substring(0, slashIndex);
-            string indexString = pathString.Substring(slashIndex + 1);
+            ReadOnlySpan<byte> propertyName = pathSpan.Slice(0, slashIndex);
+            ReadOnlySpan<byte> indexSpan = pathSpan.Slice(slashIndex + 1);
             
-            if (int.TryParse(indexString, out int arrayIndex))
+            if (TryParseIndex(indexSpan, out int arrayIndex))
             {
                 SetArrayItem(propertyName, arrayIndex, value);
                 return;
@@ -437,6 +449,32 @@ public ref struct JsonArrayElement
         
         // Regular property set
         SetProperty(pathSpan, value);
+    }
+
+    private static int FindSlashIndex(ReadOnlySpan<byte> span)
+    {
+        for (int i = 0; i < span.Length; i++)
+        {
+            if (span[i] == (byte)'/')
+                return i;
+        }
+        return -1;
+    }
+
+    private static bool TryParseIndex(ReadOnlySpan<byte> indexSpan, out int index)
+    {
+        index = 0;
+        if (indexSpan.Length == 0)
+            return false;
+
+        for (int i = 0; i < indexSpan.Length; i++)
+        {
+            byte b = indexSpan[i];
+            if (b < (byte)'0' || b > (byte)'9')
+                return false;
+            index = index * 10 + (b - (byte)'0');
+        }
+        return true;
     }
 
     private void SetProperty<T>(ReadOnlySpan<byte> name, T value)
@@ -467,9 +505,9 @@ public ref struct JsonArrayElement
         _model.Set(name, json);
     }
 
-    private void SetArrayItem<T>(string propertyName, int index, T value)
+    private void SetArrayItem<T>(ReadOnlySpan<byte> propertyName, int index, T value)
     {
-        byte[] propertyNameBytes = Encoding.UTF8.GetBytes(propertyName);
+        byte[] propertyNameBytes = propertyName.ToArray();
         
         // Get current array
         if (!_model.TryGet(propertyNameBytes, out ReadOnlySpan<byte> currentJson))
@@ -483,7 +521,7 @@ public ref struct JsonArrayElement
         var reader = new Utf8JsonReader(currentJson);
         if (!reader.Read() || reader.TokenType != JsonTokenType.StartArray)
         {
-            throw new InvalidOperationException($"Property '{propertyName}' is not an array");
+            throw new InvalidOperationException($"Property '{Encoding.UTF8.GetString(propertyName)}' is not an array");
         }
 
         // Read all array elements
