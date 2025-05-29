@@ -13,9 +13,11 @@ public class Tests
         input.Json.Set("temperature"u8, 90d);
         input.Json.Set("category"u8, "facts");
         input.Json.Set("numbers"u8, "[3.14, 7]"u8);
+        
         Assert.That(input.Category, Is.EqualTo("facts"));
+        Assert.That(input.Numbers, Is.EqualTo([3.14, 7d]));
+        Assert.That(input.Names, Is.EqualTo(["my first building", "PI"]));
 
-        // TODO: implement support for setting arrays
         // TODO: implement support for setting array elements
         // TOOD: implement += <bytes> operator
         // TODO: type hierarchy
