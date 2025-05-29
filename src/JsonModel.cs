@@ -7,6 +7,7 @@ internal interface IJsonModel
 {
     bool TryGet(ReadOnlySpan<byte> name, out ReadOnlySpan<byte> value);
     void Set(ReadOnlySpan<byte> name, ReadOnlySpan<byte> value);
+    Type? GetPropertyType(ReadOnlySpan<byte> name);
 
     void WriteAdditionalProperties(Utf8JsonWriter writer, ModelReaderWriterOptions options);
 }
@@ -98,6 +99,9 @@ public abstract class JsonModel<T> : IJsonModel<T>, IJsonModel
         }
     }
 
+    Type? IJsonModel.GetPropertyType(ReadOnlySpan<byte> name)
+        => GetPropertyType(name);
+
     void IJsonModel.WriteAdditionalProperties(Utf8JsonWriter writer, ModelReaderWriterOptions options)
         => additionalProperties.Write(writer, options);
 
@@ -148,6 +152,24 @@ public abstract class JsonModel<T> : IJsonModel<T>, IJsonModel
         if (ptype == typeof(double[]))
         {
             double[] array = root.EnumerateArray().Select(x => x.GetDouble()).ToArray();
+            if (TrySetProperty(name, array))
+                return;
+        }
+        else if (ptype == typeof(string[]))
+        {
+            string[] array = root.EnumerateArray().Select(x => x.GetString() ?? string.Empty).ToArray();
+            if (TrySetProperty(name, array))
+                return;
+        }
+        else if (ptype == typeof(int[]))
+        {
+            int[] array = root.EnumerateArray().Select(x => x.GetInt32()).ToArray();
+            if (TrySetProperty(name, array))
+                return;
+        }
+        else if (ptype == typeof(float[]))
+        {
+            float[] array = root.EnumerateArray().Select(x => x.GetSingle()).ToArray();
             if (TrySetProperty(name, array))
                 return;
         }

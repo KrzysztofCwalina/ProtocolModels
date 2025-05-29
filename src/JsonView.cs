@@ -97,6 +97,9 @@ public readonly struct JsonView
             throw new ArgumentException($"Invalid array index: {Encoding.UTF8.GetString(indexSpan)}");
         }
 
+        // Check if this is a real property with a specific type
+        Type? propertyType = _model.GetPropertyType(arrayProperty);
+        
         // Get current array - must exist
         if (!_model.TryGet(arrayProperty, out ReadOnlySpan<byte> currentJson))
         {
@@ -110,8 +113,10 @@ public readonly struct JsonView
             throw new InvalidOperationException($"Property '{Encoding.UTF8.GetString(arrayProperty)}' is not an array");
         }
 
-        // Read all array elements
+        // Read all array elements based on property type if available
         var arrayElements = new List<object>();
+        Type? elementType = propertyType?.IsArray == true ? propertyType.GetElementType() : null;
+        
         while (reader.Read())
         {
             if (reader.TokenType == JsonTokenType.EndArray)
@@ -123,7 +128,13 @@ public readonly struct JsonView
                     arrayElements.Add(reader.GetString()!);
                     break;
                 case JsonTokenType.Number:
-                    arrayElements.Add(reader.GetDouble());
+                    // Use proper type based on property type if available
+                    if (elementType == typeof(int))
+                        arrayElements.Add(reader.GetInt32());
+                    else if (elementType == typeof(float))
+                        arrayElements.Add(reader.GetSingle());
+                    else
+                        arrayElements.Add(reader.GetDouble()); // Default to double
                     break;
                 default:
                     // For other types, store raw JSON
@@ -160,6 +171,10 @@ public readonly struct JsonView
             else if (element is int intValue)
             {
                 writer.WriteNumberValue(intValue);
+            }
+            else if (element is float floatValue)
+            {
+                writer.WriteNumberValue(floatValue);
             }
             else if (element is string rawJson)
             {
@@ -418,6 +433,9 @@ public ref struct JsonArrayElement
 
     private void SetArrayItem<T>(ReadOnlySpan<byte> arrayProperty, int index, T value)
     {
+        // Check if this is a real property with a specific type
+        Type? propertyType = _model.GetPropertyType(arrayProperty);
+        
         // Get current array - must exist
         if (!_model.TryGet(arrayProperty, out ReadOnlySpan<byte> currentJson))
         {
@@ -431,8 +449,10 @@ public ref struct JsonArrayElement
             throw new InvalidOperationException($"Property '{Encoding.UTF8.GetString(arrayProperty)}' is not an array");
         }
 
-        // Read all array elements
+        // Read all array elements based on property type if available
         var arrayElements = new List<object>();
+        Type? elementType = propertyType?.IsArray == true ? propertyType.GetElementType() : null;
+        
         while (reader.Read())
         {
             if (reader.TokenType == JsonTokenType.EndArray)
@@ -444,7 +464,13 @@ public ref struct JsonArrayElement
                     arrayElements.Add(reader.GetString()!);
                     break;
                 case JsonTokenType.Number:
-                    arrayElements.Add(reader.GetDouble());
+                    // Use proper type based on property type if available
+                    if (elementType == typeof(int))
+                        arrayElements.Add(reader.GetInt32());
+                    else if (elementType == typeof(float))
+                        arrayElements.Add(reader.GetSingle());
+                    else
+                        arrayElements.Add(reader.GetDouble()); // Default to double
                     break;
                 default:
                     // For other types, store raw JSON
@@ -481,6 +507,10 @@ public ref struct JsonArrayElement
             else if (element is int intValue)
             {
                 writer.WriteNumberValue(intValue);
+            }
+            else if (element is float floatValue)
+            {
+                writer.WriteNumberValue(floatValue);
             }
             else if (element is string rawJson)
             {

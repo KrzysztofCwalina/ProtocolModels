@@ -60,6 +60,30 @@ public class Tests
         }
     }
 
+    [Test]
+    public void ArrayItemSetterWithTypedProperties()
+    {
+        InputModel input = new();
+        
+        // Set up typed arrays using the properties directly
+        input.Numbers = new double[] { 1.0, 2.0, 3.0 };
+        
+        // Test updating existing array at existing indices using array syntax
+        input.Json.Set("numbers/1"u8, 99.9);
+        
+        // Verify the real property was updated
+        Assert.That(input.Numbers.Length, Is.EqualTo(3));
+        Assert.That(input.Numbers[0], Is.EqualTo(1.0));
+        Assert.That(input.Numbers[1], Is.EqualTo(99.9)); // Modified
+        Assert.That(input.Numbers[2], Is.EqualTo(3.0));
+        
+        // Verify we can retrieve the modified value using array syntax
+        Assert.That(input.Json.GetDouble("numbers/1"u8), Is.EqualTo(99.9));
+        
+        // Test that the property type checking is working
+        Assert.That(input.Json.GetDouble("numbers/0"u8), Is.EqualTo(1.0));
+    }
+
     [Test] 
     public void Models()
     {
