@@ -82,11 +82,12 @@ public class OutputModel : JsonModel<OutputModel>
         return this;
     }
 
-    protected override bool HasProperty(ReadOnlySpan<byte> name)
+    protected override Type GetPropertyType(ReadOnlySpan<byte> name)
     {
-        if(name.SequenceEqual("confidence"u8)) return true;
-        return false;
+        if (name.SequenceEqual("confidence"u8)) return typeof(float);
+        return null;
     }
+
 
     protected override bool TryGetProperty(ReadOnlySpan<byte> name, out object value)
     {
@@ -133,12 +134,12 @@ public class InputModel : JsonModel<InputModel>
         throw new NotImplementedException();
     }
 
-    protected override bool HasProperty(ReadOnlySpan<byte> name)
+    protected override Type? GetPropertyType(ReadOnlySpan<byte> name)
     {
-        if(name.SequenceEqual("category"u8)) return true;
-        if(name.SequenceEqual("names"u8)) return true;
-        if(name.SequenceEqual("numbers"u8)) return true;
-        return false;
+        if(name.SequenceEqual("category"u8)) return typeof(string);
+        if(name.SequenceEqual("names"u8)) return typeof(string[]);
+        if(name.SequenceEqual("numbers"u8)) return typeof(double[]);
+        return null;
     }
 
     protected override bool TryGetProperty(ReadOnlySpan<byte> name, out object value)
@@ -151,6 +152,16 @@ public class InputModel : JsonModel<InputModel>
         if(name.SequenceEqual("category"u8) && value is string category)
         {
             Category = category;
+            return true;
+        }
+        if(name.SequenceEqual("names"u8) && value is string[] names)
+        {
+            Names = names;
+            return true;
+        }
+        if(name.SequenceEqual("numbers"u8) && value is double[] numbers)
+        {
+            Numbers = numbers;
             return true;
         }
         throw new NotImplementedException();

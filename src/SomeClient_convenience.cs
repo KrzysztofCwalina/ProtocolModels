@@ -48,11 +48,6 @@ public class ConvenienceInputModel : JsonModel<ConvenienceInputModel>
         throw new NotImplementedException();
     }
 
-    protected override bool HasProperty(ReadOnlySpan<byte> name)
-    {
-        throw new NotImplementedException();
-    }
-
     protected override bool TrySetProperty(ReadOnlySpan<byte> name, object value)
     {
         throw new NotImplementedException();
@@ -67,6 +62,11 @@ public class ConvenienceInputModel : JsonModel<ConvenienceInputModel>
     {
         throw new NotImplementedException();
     }
+
+    protected override Type GetPropertyType(ReadOnlySpan<byte> name)
+    {
+        throw new NotImplementedException();
+    }
 }
 
 public class ConvenienceOutputModel : JsonModel<ConvenienceOutputModel>
@@ -76,7 +76,7 @@ public class ConvenienceOutputModel : JsonModel<ConvenienceOutputModel>
         throw new NotImplementedException();
     }
 
-    protected override bool HasProperty(ReadOnlySpan<byte> name)
+    protected override Type GetPropertyType(ReadOnlySpan<byte> name)
     {
         throw new NotImplementedException();
     }

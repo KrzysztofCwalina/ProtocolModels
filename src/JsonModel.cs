@@ -125,7 +125,7 @@ public abstract class JsonModel<T> : IJsonModel<T>, IJsonModel
     public JsonView Json => new JsonView(this);
 
     protected abstract bool TryGetProperty(ReadOnlySpan<byte> name, out object value);
-    protected abstract bool HasProperty(ReadOnlySpan<byte> name);
+    protected abstract Type GetPropertyType(ReadOnlySpan<byte> name);
     protected abstract bool TrySetProperty(ReadOnlySpan<byte> name, object value);
     protected abstract void WriteCore(Utf8JsonWriter writer, ModelReaderWriterOptions options);
     protected abstract T CreateCore(ref Utf8JsonReader reader, ModelReaderWriterOptions options);
@@ -178,7 +178,8 @@ public abstract class JsonModel<T> : IJsonModel<T>, IJsonModel
 
     void IJsonModel.Set(ReadOnlySpan<byte> name, ReadOnlySpan<byte> value)
     {
-        if (HasProperty(name))
+        Type? ptype = GetPropertyType(name);
+        if (ptype!=null)
         {
             SetRealProperty(name, value);
         }
@@ -193,6 +194,13 @@ public abstract class JsonModel<T> : IJsonModel<T>, IJsonModel
 
     private void SetRealProperty(ReadOnlySpan<byte> name, ReadOnlySpan<byte> json)
     {
+        Type ptype = GetPropertyType(name); // ensure the property exists and get its type
+        if (ptype.IsArray)
+        {
+            SetArrayProperty(name, json, ptype);
+            return;
+        }
+
         Utf8JsonReader reader = new Utf8JsonReader(json);
         if(!reader.Read()) throw new ArgumentException(nameof(json));
         object value = null;
@@ -202,7 +210,16 @@ public abstract class JsonModel<T> : IJsonModel<T>, IJsonModel
                 value = reader.GetString()!;
                 break;
             case JsonTokenType.Number:
-                value = reader.GetDouble();
+                if(ptype == typeof(float))
+                    value = reader.GetSingle();
+                else if (ptype == typeof(double))
+                    value = reader.GetDouble();
+                else if (ptype == typeof(int))
+                    value = reader.GetInt32();
+                else if (ptype == typeof(long))
+                    value = reader.GetInt64();
+                else
+                    throw new NotSupportedException($"Unsupported numeric type: {ptype}");
                 break;
             case JsonTokenType.True:
             case JsonTokenType.False:
@@ -213,6 +230,19 @@ public abstract class JsonModel<T> : IJsonModel<T>, IJsonModel
         }
         if (TrySetProperty(name, value))
             return;
+    }
+
+    private void SetArrayProperty(ReadOnlySpan<byte> name, ReadOnlySpan<byte> json, Type ptype)
+    {
+        JsonDocument jsonDocument = JsonDocument.Parse(json.ToArray());
+        JsonElement root = jsonDocument.RootElement;;
+        if (ptype == typeof(double[]))
+        {
+            double[] array = root.EnumerateArray().Select(x => x.GetDouble()).ToArray();
+            if (TrySetProperty(name, array))
+                return;
+        }
+        throw new NotSupportedException($"Unsupported array type: {ptype}");
     }
 
     #region MRW

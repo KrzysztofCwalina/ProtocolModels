@@ -12,6 +12,8 @@ public class Tests
         
         input.Json.Set("temperature"u8, 90d);
         input.Json.Set("category"u8, "facts");
+        input.Json.Set("numbers"u8, "[3.14, 7]"u8);
+        Assert.That(input.Category, Is.EqualTo("facts"));
 
         // TODO: implement support for setting arrays
         // TODO: implement support for setting array elements
@@ -22,7 +24,7 @@ public class Tests
         BinaryData json = ModelReaderWriter.Write(input);
 
         Assert.That(json.GetString("/category"u8), Is.EqualTo(input.Category));
-        Assert.That(json.GetInt32("/numbers/0"u8), Is.EqualTo(input.Numbers[0]));
+        Assert.That(json.GetDouble("/numbers/0"u8), Is.EqualTo(input.Numbers[0]));
         Assert.That(json.GetDouble("/numbers/1"u8), Is.EqualTo(input.Numbers[1]));
         Assert.That(json.GetString("/names/0"u8), Is.EqualTo(input.Names[0]));
         Assert.That(json.GetString("/names/1"u8), Is.EqualTo(input.Names[1]));
