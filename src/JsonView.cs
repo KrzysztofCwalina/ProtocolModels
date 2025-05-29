@@ -231,6 +231,11 @@ public readonly struct JsonView
         get => new JsonView(_model, Encoding.UTF8.GetBytes(name));
     }
 
+    public JsonArrayElement this[ReadOnlySpan<byte> path]
+    {
+        get => new JsonArrayElement(_model, path.ToArray());
+    }
+
 
     public string GetString(ReadOnlySpan<byte> name)
     {
@@ -392,6 +397,210 @@ public readonly struct JsonView
     [EditorBrowsable(EditorBrowsableState.Never)]
     public void Write(Utf8JsonWriter writer, ModelReaderWriterOptions options)
         => _model.WriteAdditionalProperties(writer, options);
+}
+
+public ref struct JsonArrayElement
+{
+    private readonly IJsonModel _model;
+    private readonly byte[] _path;
+
+    internal JsonArrayElement(IJsonModel model, byte[] path)
+    {
+        _model = model;
+        _path = path;
+    }
+
+    public void Set<T>(T value)
+    {
+        SetValue(value);
+    }
+
+    private void SetValue<T>(T value)
+    {
+        ReadOnlySpan<byte> pathSpan = _path.AsSpan();
+        string pathString = Encoding.UTF8.GetString(pathSpan);
+        
+        // Check if this is an array index operation (contains '/')
+        int slashIndex = pathString.IndexOf('/');
+        if (slashIndex > 0)
+        {
+            // Parse array property name and index
+            string propertyName = pathString.Substring(0, slashIndex);
+            string indexString = pathString.Substring(slashIndex + 1);
+            
+            if (int.TryParse(indexString, out int arrayIndex))
+            {
+                SetArrayItem(propertyName, arrayIndex, value);
+                return;
+            }
+        }
+        
+        // Regular property set
+        SetProperty(pathSpan, value);
+    }
+
+    private void SetProperty<T>(ReadOnlySpan<byte> name, T value)
+    {
+        // Serialize the value to JSON
+        MemoryStream stream = new(24);
+        Utf8JsonWriter writer = new Utf8JsonWriter(stream);
+        
+        if (value is string stringValue)
+        {
+            writer.WriteStringValue(stringValue);
+        }
+        else if (value is double doubleValue)
+        {
+            writer.WriteNumberValue(doubleValue);
+        }
+        else if (value is int intValue)
+        {
+            writer.WriteNumberValue(intValue);
+        }
+        else
+        {
+            throw new NotSupportedException($"Type {typeof(T)} is not supported");
+        }
+        
+        writer.Flush();
+        ReadOnlySpan<byte> json = stream.GetBuffer().AsSpan(0, (int)stream.Position);
+        _model.Set(name, json);
+    }
+
+    private void SetArrayItem<T>(string propertyName, int index, T value)
+    {
+        byte[] propertyNameBytes = Encoding.UTF8.GetBytes(propertyName);
+        
+        // Get current array
+        if (!_model.TryGet(propertyNameBytes, out ReadOnlySpan<byte> currentJson))
+        {
+            // Property doesn't exist, create new array
+            CreateArrayWithItem(propertyNameBytes, index, value);
+            return;
+        }
+
+        // Parse existing array
+        var reader = new Utf8JsonReader(currentJson);
+        if (!reader.Read() || reader.TokenType != JsonTokenType.StartArray)
+        {
+            throw new InvalidOperationException($"Property '{propertyName}' is not an array");
+        }
+
+        // Read all array elements
+        var arrayElements = new List<object>();
+        while (reader.Read())
+        {
+            if (reader.TokenType == JsonTokenType.EndArray)
+                break;
+                
+            switch (reader.TokenType)
+            {
+                case JsonTokenType.String:
+                    arrayElements.Add(reader.GetString()!);
+                    break;
+                case JsonTokenType.Number:
+                    arrayElements.Add(reader.GetDouble());
+                    break;
+                default:
+                    // For other types, store raw JSON
+                    var doc = JsonDocument.ParseValue(ref reader);
+                    arrayElements.Add(doc.RootElement.GetRawText());
+                    break;
+            }
+        }
+
+        // Extend array if necessary
+        while (arrayElements.Count <= index)
+        {
+            arrayElements.Add(GetDefaultValue(arrayElements));
+        }
+
+        // Set the value at the specified index
+        arrayElements[index] = value;
+
+        // Rebuild the array JSON
+        MemoryStream stream = new();
+        Utf8JsonWriter writer = new Utf8JsonWriter(stream);
+        writer.WriteStartArray();
+        
+        foreach (var element in arrayElements)
+        {
+            if (element is string stringValue)
+            {
+                writer.WriteStringValue(stringValue);
+            }
+            else if (element is double doubleValue)
+            {
+                writer.WriteNumberValue(doubleValue);
+            }
+            else if (element is int intValue)
+            {
+                writer.WriteNumberValue(intValue);
+            }
+            else if (element is string rawJson)
+            {
+                writer.WriteRawValue(rawJson);
+            }
+        }
+        
+        writer.WriteEndArray();
+        writer.Flush();
+        
+        ReadOnlySpan<byte> arrayJson = stream.GetBuffer().AsSpan(0, (int)stream.Position);
+        _model.Set(propertyNameBytes, arrayJson);
+    }
+
+    private void CreateArrayWithItem<T>(byte[] propertyNameBytes, int index, T value)
+    {
+        MemoryStream stream = new();
+        Utf8JsonWriter writer = new Utf8JsonWriter(stream);
+        writer.WriteStartArray();
+        
+        // Fill with default values up to the index
+        for (int i = 0; i < index; i++)
+        {
+            if (value is string)
+                writer.WriteStringValue("");
+            else if (value is double || value is int)
+                writer.WriteNumberValue(0);
+        }
+        
+        // Write the actual value
+        if (value is string stringValue)
+        {
+            writer.WriteStringValue(stringValue);
+        }
+        else if (value is double doubleValue)
+        {
+            writer.WriteNumberValue(doubleValue);
+        }
+        else if (value is int intValue)
+        {
+            writer.WriteNumberValue(intValue);
+        }
+        
+        writer.WriteEndArray();
+        writer.Flush();
+        
+        ReadOnlySpan<byte> arrayJson = stream.GetBuffer().AsSpan(0, (int)stream.Position);
+        _model.Set(propertyNameBytes, arrayJson);
+    }
+
+    private static object GetDefaultValue(List<object> existingElements)
+    {
+        if (existingElements.Count == 0)
+            return 0.0; // Default to double
+            
+        var firstElement = existingElements[0];
+        if (firstElement is string)
+            return "";
+        if (firstElement is double)
+            return 0.0;
+        if (firstElement is int)
+            return 0;
+            
+        return 0.0; // Default fallback
+    }
 }
 
 

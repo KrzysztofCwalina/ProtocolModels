@@ -7,7 +7,7 @@ public class Tests
     {
         InputModel input = new();
         
-        // Test setting array items using the slash notation
+        // Test setting array items using the Set method with slash notation
         input.Json.Set("foo/3"u8, 10.5);
         input.Json.Set("bar/0"u8, "test");
         input.Json.Set("baz/1"u8, 42);
@@ -38,6 +38,15 @@ public class Tests
         
         // Verify we can retrieve the modified value
         Assert.That(input.Json.GetDouble("numbers/1"u8), Is.EqualTo(99.9));
+
+        // Test alternative syntax with the new indexer (closest to the desired syntax)
+        var element = input.Json["test/2"u8];
+        element.Set(123.45);
+        Assert.That(input.Json.GetDouble("test/2"u8), Is.EqualTo(123.45));
+        
+        // Show that the main Set method approach is the most practical
+        input.Json.Set("practical/5"u8, 999);
+        Assert.That(input.Json.GetDouble("practical/5"u8), Is.EqualTo(999));
     }
 
     [Test] 
