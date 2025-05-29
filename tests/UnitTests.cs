@@ -63,4 +63,18 @@ public class Tests
         Assert.That(output.Json.GetDouble("confidence"u8), Is.EqualTo(0.95));
         Assert.That(output.Json.GetString("text"u8), Is.EqualTo("some text"));
     }
+
+    [Test]
+    public void ArrayItemSetter()
+    {
+        InputModel input = new();
+        input.Numbers = [1, 2, 3];
+        
+        // Test setting array item using SetArrayItem method 
+        input.Json.SetArrayItem("numbers\\2"u8, 10);
+        
+        // Verify the array was modified
+        Assert.That(input.Numbers[2], Is.EqualTo(10));
+        Assert.That(input.Numbers, Is.EqualTo([1, 2, 10]));
+    }
 }

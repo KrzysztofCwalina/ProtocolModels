@@ -49,6 +49,136 @@ public readonly struct JsonView
     {
         get => new JsonView(_model, Encoding.UTF8.GetBytes(name));
     }
+    
+    // Special Set method that handles array indexing syntax
+    public void SetArrayItem(ReadOnlySpan<byte> nameWithIndex, object value)
+    {
+        // Parse the name to check if it contains array indexing syntax
+        if (ParseArrayIndexFromName(nameWithIndex, out ReadOnlySpan<byte> propertyName, out int arrayIndex))
+        {
+            // Handle array item setting
+            SetArrayItemInternal(propertyName, arrayIndex, value);
+        }
+        else
+        {
+            // Handle regular property setting
+            if (value is double d)
+                Set(nameWithIndex, d);
+            else if (value is string s)
+                Set(nameWithIndex, s);
+            else if (value is int i)
+                Set(nameWithIndex, (double)i); // Convert int to double
+            else
+                throw new NotSupportedException($"Unsupported value type: {value?.GetType()}");
+        }
+    }
+    
+    private bool ParseArrayIndexFromName(ReadOnlySpan<byte> name, out ReadOnlySpan<byte> propertyName, out int arrayIndex)
+    {
+        // Look for the array index separator (backslash in this case)
+        int separatorIndex = -1;
+        for (int i = 0; i < name.Length; i++)
+        {
+            if (name[i] == (byte)'\\')
+            {
+                separatorIndex = i;
+                break;
+            }
+        }
+        
+        if (separatorIndex >= 0 && separatorIndex < name.Length - 1)
+        {
+            propertyName = name.Slice(0, separatorIndex);
+            ReadOnlySpan<byte> indexSpan = name.Slice(separatorIndex + 1);
+            
+            // Try to parse the index
+            string indexString = Encoding.UTF8.GetString(indexSpan);
+            if (int.TryParse(indexString, out arrayIndex))
+            {
+                return true;
+            }
+        }
+        
+        propertyName = default;
+        arrayIndex = -1;
+        return false;
+    }
+    
+    private void SetArrayItemInternal(ReadOnlySpan<byte> propertyName, int arrayIndex, object value)
+    {
+        // Get the current array from the model
+        if (!_model.TryGet(propertyName, out ReadOnlySpan<byte> currentValue) || currentValue.Length == 0)
+        {
+            throw new KeyNotFoundException($"Property '{Encoding.UTF8.GetString(propertyName)}' not found or has no value.");
+        }
+        
+        // Parse the current array
+        var reader = new Utf8JsonReader(currentValue);
+        if (!reader.Read() || reader.TokenType != JsonTokenType.StartArray)
+        {
+            throw new InvalidOperationException($"Property '{Encoding.UTF8.GetString(propertyName)}' is not a JSON array.");
+        }
+        
+        // Read the array into a list for modification
+        var list = new List<object>();
+        while (reader.Read())
+        {
+            if (reader.TokenType == JsonTokenType.EndArray)
+                break;
+                
+            // Read each element as an object
+            switch (reader.TokenType)
+            {
+                case JsonTokenType.Number:
+                    list.Add(reader.GetDouble());
+                    break;
+                case JsonTokenType.String:
+                    list.Add(reader.GetString()!);
+                    break;
+                case JsonTokenType.True:
+                case JsonTokenType.False:
+                    list.Add(reader.GetBoolean());
+                    break;
+                default:
+                    throw new NotSupportedException($"Unsupported JSON token type in array: {reader.TokenType}");
+            }
+        }
+        
+        // Ensure the array is large enough
+        while (list.Count <= arrayIndex)
+        {
+            list.Add(0.0); // Default value for expansion
+        }
+        
+        // Set the new value
+        if (value is int i)
+            list[arrayIndex] = (double)i; // Convert int to double for consistency
+        else
+            list[arrayIndex] = value;
+        
+        // Serialize the modified array back to JSON
+        using var stream = new MemoryStream();
+        using var writer = new Utf8JsonWriter(stream);
+        
+        writer.WriteStartArray();
+        foreach (var item in list)
+        {
+            if (item is double d)
+                writer.WriteNumberValue(d);
+            else if (item is string s)
+                writer.WriteStringValue(s);
+            else if (item is bool b)
+                writer.WriteBooleanValue(b);
+            else
+                throw new NotSupportedException($"Unsupported array item type: {item?.GetType()}");
+        }
+        writer.WriteEndArray();
+        writer.Flush();
+        
+        // Set the updated array back to the model
+        ReadOnlySpan<byte> newJson = stream.GetBuffer().AsSpan(0, (int)stream.Position);
+        _model.Set(propertyName, newJson);
+    }
     public string GetString(ReadOnlySpan<byte> name)
     {
         if (_model.TryGet(name, out ReadOnlySpan<byte> value) && value.Length > 0)
