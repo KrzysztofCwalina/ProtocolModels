@@ -7,46 +7,57 @@ public class Tests
     {
         InputModel input = new();
         
-        // Test setting array items using the Set method with slash notation
-        input.Json.Set("foo/3"u8, 10.5);
-        input.Json.Set("bar/0"u8, "test");
-        input.Json.Set("baz/1"u8, 42);
-        
-        // Test that arrays were created with proper padding
-        double[] fooArray = input.Json.GetArray<double>("foo"u8);
-        Assert.That(fooArray.Length, Is.EqualTo(4));
-        Assert.That(fooArray[3], Is.EqualTo(10.5));
-        Assert.That(fooArray[0], Is.EqualTo(0.0)); // Should be padded with defaults
-        
-        string[] barArray = input.Json.GetArray<string>("bar"u8);
-        Assert.That(barArray.Length, Is.EqualTo(1));
-        Assert.That(barArray[0], Is.EqualTo("test"));
-        
-        // Verify the values can be retrieved using array access syntax
-        Assert.That(input.Json.GetDouble("foo/3"u8), Is.EqualTo(10.5));
-        Assert.That(input.Json.GetString("bar/0"u8), Is.EqualTo("test"));
-        
-        // Test updating existing arrays
+        // First create arrays using the regular Set method
         input.Json.Set("numbers"u8, "[1.0, 2.0, 3.0]"u8);
-        input.Json.Set("numbers/1"u8, 99.9);
+        input.Json.Set("values"u8, "[10.5, 20.5, 30.5, 40.5]"u8);
         
+        // Test updating existing arrays at existing indices
+        input.Json.Set("numbers/1"u8, 99.9);
+        input.Json.Set("values/2"u8, 300.7);
+        
+        // Verify the arrays were modified correctly
         double[] numbersArray = input.Json.GetArray<double>("numbers"u8);
         Assert.That(numbersArray.Length, Is.EqualTo(3));
-        Assert.That(numbersArray[0], Is.EqualTo(1.0));
-        Assert.That(numbersArray[1], Is.EqualTo(99.9)); // Modified
-        Assert.That(numbersArray[2], Is.EqualTo(3.0));
+        Assert.That(numbersArray[0], Is.EqualTo(1.0));    // Unchanged
+        Assert.That(numbersArray[1], Is.EqualTo(99.9));   // Modified
+        Assert.That(numbersArray[2], Is.EqualTo(3.0));    // Unchanged
         
-        // Verify we can retrieve the modified value
+        double[] valuesArray = input.Json.GetArray<double>("values"u8);
+        Assert.That(valuesArray.Length, Is.EqualTo(4));
+        Assert.That(valuesArray[0], Is.EqualTo(10.5));    // Unchanged
+        Assert.That(valuesArray[1], Is.EqualTo(20.5));    // Unchanged
+        Assert.That(valuesArray[2], Is.EqualTo(300.7));   // Modified
+        Assert.That(valuesArray[3], Is.EqualTo(40.5));    // Unchanged
+        
+        // Verify we can retrieve the modified values using array syntax
         Assert.That(input.Json.GetDouble("numbers/1"u8), Is.EqualTo(99.9));
-
-        // Test alternative syntax with the new indexer (closest to the desired syntax)
-        var element = input.Json["test/2"u8];
-        element.Set(123.45);
-        Assert.That(input.Json.GetDouble("test/2"u8), Is.EqualTo(123.45));
+        Assert.That(input.Json.GetDouble("values/2"u8), Is.EqualTo(300.7));
         
-        // Show that the main Set method approach is the most practical
-        input.Json.Set("practical/5"u8, 999);
-        Assert.That(input.Json.GetDouble("practical/5"u8), Is.EqualTo(999));
+        // Test that attempting to set non-existent array fails
+        var ex1 = Assert.Throws<InvalidOperationException>(() => input.Json.Set("nonexistent/0"u8, 42.0));
+        Assert.That(ex1.Message, Does.Contain("does not exist"));
+        
+        // Test that attempting to set out-of-range index fails
+        var ex2 = Assert.Throws<IndexOutOfRangeException>(() => input.Json.Set("numbers/5"u8, 42.0));
+        Assert.That(ex2.Message, Does.Contain("out of range"));
+        
+        // Test alternative syntax with the indexer
+        input.Json.Set("test"u8, "[100.0, 200.0]"u8);
+        var element = input.Json["test/1"u8];
+        element.Set(999.0);
+        Assert.That(input.Json.GetDouble("test/1"u8), Is.EqualTo(999.0));
+        
+        // Test that indexer also fails for non-existent arrays  
+        var element2 = input.Json["missing/0"u8];
+        try
+        {
+            element2.Set(123.0);
+            Assert.Fail("Expected InvalidOperationException");
+        }
+        catch (InvalidOperationException)
+        {
+            // Expected
+        }
     }
 
     [Test] 

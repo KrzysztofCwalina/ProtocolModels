@@ -1,4 +1,5 @@
-﻿using System.ClientModel.Primitives;
+﻿using System.Buffers.Text;
+using System.ClientModel.Primitives;
 using System.ComponentModel;
 using System.Text;
 using System.Text.Json;
@@ -19,28 +20,12 @@ public readonly struct JsonView
 
     private static int FindSlashIndex(ReadOnlySpan<byte> span)
     {
-        for (int i = 0; i < span.Length; i++)
-        {
-            if (span[i] == (byte)'/')
-                return i;
-        }
-        return -1;
+        return span.IndexOf((byte)'/');
     }
 
     private static bool TryParseIndex(ReadOnlySpan<byte> indexSpan, out int index)
     {
-        index = 0;
-        if (indexSpan.Length == 0)
-            return false;
-
-        for (int i = 0; i < indexSpan.Length; i++)
-        {
-            byte b = indexSpan[i];
-            if (b < (byte)'0' || b > (byte)'9')
-                return false;
-            index = index * 10 + (b - (byte)'0');
-        }
-        return true;
+        return Utf8Parser.TryParse(indexSpan, out index, out _);
     }
 
     public void Set(ReadOnlySpan<byte> name, string value)
@@ -105,28 +90,24 @@ public readonly struct JsonView
 
     // TODO: add Set overloads for other types (int, bool, etc.)
 
-    private void SetArrayItem<T>(ReadOnlySpan<byte> propertyName, ReadOnlySpan<byte> indexSpan, T value)
+    private void SetArrayItem<T>(ReadOnlySpan<byte> arrayProperty, ReadOnlySpan<byte> indexSpan, T value)
     {
-        if (!TryParseIndex(indexSpan, out int arrayIndex))
+        if (!TryParseIndex(indexSpan, out int index))
         {
             throw new ArgumentException($"Invalid array index: {Encoding.UTF8.GetString(indexSpan)}");
         }
 
-        byte[] propertyNameBytes = propertyName.ToArray();
-        
-        // Get current array
-        if (!_model.TryGet(propertyNameBytes, out ReadOnlySpan<byte> currentJson))
+        // Get current array - must exist
+        if (!_model.TryGet(arrayProperty, out ReadOnlySpan<byte> currentJson))
         {
-            // Property doesn't exist, create new array
-            CreateArrayWithItem(propertyNameBytes, arrayIndex, value);
-            return;
+            throw new InvalidOperationException($"Array property '{Encoding.UTF8.GetString(arrayProperty)}' does not exist");
         }
 
         // Parse existing array
         var reader = new Utf8JsonReader(currentJson);
         if (!reader.Read() || reader.TokenType != JsonTokenType.StartArray)
         {
-            throw new InvalidOperationException($"Property '{Encoding.UTF8.GetString(propertyName)}' is not an array");
+            throw new InvalidOperationException($"Property '{Encoding.UTF8.GetString(arrayProperty)}' is not an array");
         }
 
         // Read all array elements
@@ -152,14 +133,14 @@ public readonly struct JsonView
             }
         }
 
-        // Extend array if necessary
-        while (arrayElements.Count <= arrayIndex)
+        // Check if index exists in the array
+        if (index >= arrayElements.Count)
         {
-            arrayElements.Add(GetDefaultValue(arrayElements));
+            throw new IndexOutOfRangeException($"Array index {index} is out of range for array with {arrayElements.Count} elements");
         }
 
         // Set the value at the specified index
-        arrayElements[arrayIndex] = value;
+        arrayElements[index] = value;
 
         // Rebuild the array JSON
         MemoryStream stream = new();
@@ -190,59 +171,7 @@ public readonly struct JsonView
         writer.Flush();
         
         ReadOnlySpan<byte> arrayJson = stream.GetBuffer().AsSpan(0, (int)stream.Position);
-        _model.Set(propertyNameBytes, arrayJson);
-    }
-
-    private void CreateArrayWithItem<T>(byte[] propertyNameBytes, int index, T value)
-    {
-        MemoryStream stream = new();
-        Utf8JsonWriter writer = new Utf8JsonWriter(stream);
-        writer.WriteStartArray();
-        
-        // Fill with default values up to the index
-        for (int i = 0; i < index; i++)
-        {
-            if (value is string)
-                writer.WriteStringValue("");
-            else if (value is double || value is int)
-                writer.WriteNumberValue(0);
-        }
-        
-        // Write the actual value
-        if (value is string stringValue)
-        {
-            writer.WriteStringValue(stringValue);
-        }
-        else if (value is double doubleValue)
-        {
-            writer.WriteNumberValue(doubleValue);
-        }
-        else if (value is int intValue)
-        {
-            writer.WriteNumberValue(intValue);
-        }
-        
-        writer.WriteEndArray();
-        writer.Flush();
-        
-        ReadOnlySpan<byte> arrayJson = stream.GetBuffer().AsSpan(0, (int)stream.Position);
-        _model.Set(propertyNameBytes, arrayJson);
-    }
-
-    private static object GetDefaultValue(List<object> existingElements)
-    {
-        if (existingElements.Count == 0)
-            return 0.0; // Default to double
-            
-        var firstElement = existingElements[0];
-        if (firstElement is string)
-            return "";
-        if (firstElement is double)
-            return 0.0;
-        if (firstElement is int)
-            return 0;
-            
-        return 0.0; // Default fallback
+        _model.Set(arrayProperty, arrayJson);
     }
 
     public JsonView this[string name]
@@ -300,26 +229,24 @@ public readonly struct JsonView
         }
     }
 
-    private T GetArrayItem<T>(ReadOnlySpan<byte> propertyName, ReadOnlySpan<byte> indexSpan)
+    private T GetArrayItem<T>(ReadOnlySpan<byte> arrayProperty, ReadOnlySpan<byte> indexSpan)
     {
-        if (!TryParseIndex(indexSpan, out int arrayIndex))
+        if (!TryParseIndex(indexSpan, out int index))
         {
             throw new ArgumentException($"Invalid array index: {Encoding.UTF8.GetString(indexSpan)}");
         }
 
-        byte[] propertyNameBytes = propertyName.ToArray();
-        
         // Get current array
-        if (!_model.TryGet(propertyNameBytes, out ReadOnlySpan<byte> currentJson))
+        if (!_model.TryGet(arrayProperty, out ReadOnlySpan<byte> currentJson))
         {
-            throw new KeyNotFoundException($"Property '{Encoding.UTF8.GetString(propertyName)}' not found");
+            throw new KeyNotFoundException($"Property '{Encoding.UTF8.GetString(arrayProperty)}' not found");
         }
 
         // Parse existing array
         var reader = new Utf8JsonReader(currentJson);
         if (!reader.Read() || reader.TokenType != JsonTokenType.StartArray)
         {
-            throw new InvalidOperationException($"Property '{Encoding.UTF8.GetString(propertyName)}' is not an array");
+            throw new InvalidOperationException($"Property '{Encoding.UTF8.GetString(arrayProperty)}' is not an array");
         }
 
         int currentIndex = 0;
@@ -327,10 +254,10 @@ public readonly struct JsonView
         {
             if (reader.TokenType == JsonTokenType.EndArray)
             {
-                throw new IndexOutOfRangeException($"Array index {arrayIndex} is out of range");
+                throw new IndexOutOfRangeException($"Array index {index} is out of range");
             }
             
-            if (currentIndex == arrayIndex)
+            if (currentIndex == index)
             {
                 if (typeof(T) == typeof(string))
                 {
@@ -352,7 +279,7 @@ public readonly struct JsonView
             currentIndex++;
         }
         
-        throw new IndexOutOfRangeException($"Array index {arrayIndex} is out of range");
+        throw new IndexOutOfRangeException($"Array index {index} is out of range");
     }
     // get spillover (or real?) property or array value
     public bool TryGet(string name, out ReadOnlySpan<byte> value)
@@ -453,28 +380,12 @@ public ref struct JsonArrayElement
 
     private static int FindSlashIndex(ReadOnlySpan<byte> span)
     {
-        for (int i = 0; i < span.Length; i++)
-        {
-            if (span[i] == (byte)'/')
-                return i;
-        }
-        return -1;
+        return span.IndexOf((byte)'/');
     }
 
     private static bool TryParseIndex(ReadOnlySpan<byte> indexSpan, out int index)
     {
-        index = 0;
-        if (indexSpan.Length == 0)
-            return false;
-
-        for (int i = 0; i < indexSpan.Length; i++)
-        {
-            byte b = indexSpan[i];
-            if (b < (byte)'0' || b > (byte)'9')
-                return false;
-            index = index * 10 + (b - (byte)'0');
-        }
-        return true;
+        return Utf8Parser.TryParse(indexSpan, out index, out _);
     }
 
     private void SetProperty<T>(ReadOnlySpan<byte> name, T value)
@@ -505,23 +416,19 @@ public ref struct JsonArrayElement
         _model.Set(name, json);
     }
 
-    private void SetArrayItem<T>(ReadOnlySpan<byte> propertyName, int index, T value)
+    private void SetArrayItem<T>(ReadOnlySpan<byte> arrayProperty, int index, T value)
     {
-        byte[] propertyNameBytes = propertyName.ToArray();
-        
-        // Get current array
-        if (!_model.TryGet(propertyNameBytes, out ReadOnlySpan<byte> currentJson))
+        // Get current array - must exist
+        if (!_model.TryGet(arrayProperty, out ReadOnlySpan<byte> currentJson))
         {
-            // Property doesn't exist, create new array
-            CreateArrayWithItem(propertyNameBytes, index, value);
-            return;
+            throw new InvalidOperationException($"Array property '{Encoding.UTF8.GetString(arrayProperty)}' does not exist");
         }
 
         // Parse existing array
         var reader = new Utf8JsonReader(currentJson);
         if (!reader.Read() || reader.TokenType != JsonTokenType.StartArray)
         {
-            throw new InvalidOperationException($"Property '{Encoding.UTF8.GetString(propertyName)}' is not an array");
+            throw new InvalidOperationException($"Property '{Encoding.UTF8.GetString(arrayProperty)}' is not an array");
         }
 
         // Read all array elements
@@ -547,10 +454,10 @@ public ref struct JsonArrayElement
             }
         }
 
-        // Extend array if necessary
-        while (arrayElements.Count <= index)
+        // Check if index exists in the array
+        if (index >= arrayElements.Count)
         {
-            arrayElements.Add(GetDefaultValue(arrayElements));
+            throw new IndexOutOfRangeException($"Array index {index} is out of range for array with {arrayElements.Count} elements");
         }
 
         // Set the value at the specified index
@@ -585,59 +492,7 @@ public ref struct JsonArrayElement
         writer.Flush();
         
         ReadOnlySpan<byte> arrayJson = stream.GetBuffer().AsSpan(0, (int)stream.Position);
-        _model.Set(propertyNameBytes, arrayJson);
-    }
-
-    private void CreateArrayWithItem<T>(byte[] propertyNameBytes, int index, T value)
-    {
-        MemoryStream stream = new();
-        Utf8JsonWriter writer = new Utf8JsonWriter(stream);
-        writer.WriteStartArray();
-        
-        // Fill with default values up to the index
-        for (int i = 0; i < index; i++)
-        {
-            if (value is string)
-                writer.WriteStringValue("");
-            else if (value is double || value is int)
-                writer.WriteNumberValue(0);
-        }
-        
-        // Write the actual value
-        if (value is string stringValue)
-        {
-            writer.WriteStringValue(stringValue);
-        }
-        else if (value is double doubleValue)
-        {
-            writer.WriteNumberValue(doubleValue);
-        }
-        else if (value is int intValue)
-        {
-            writer.WriteNumberValue(intValue);
-        }
-        
-        writer.WriteEndArray();
-        writer.Flush();
-        
-        ReadOnlySpan<byte> arrayJson = stream.GetBuffer().AsSpan(0, (int)stream.Position);
-        _model.Set(propertyNameBytes, arrayJson);
-    }
-
-    private static object GetDefaultValue(List<object> existingElements)
-    {
-        if (existingElements.Count == 0)
-            return 0.0; // Default to double
-            
-        var firstElement = existingElements[0];
-        if (firstElement is string)
-            return "";
-        if (firstElement is double)
-            return 0.0;
-        if (firstElement is int)
-            return 0;
-            
-        return 0.0; // Default fallback
+        _model.Set(arrayProperty, arrayJson);
     }
 }
 
