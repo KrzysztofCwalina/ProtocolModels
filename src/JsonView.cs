@@ -83,6 +83,53 @@ public readonly struct JsonView
     public bool TryGet(ReadOnlySpan<byte> name, out ReadOnlySpan<byte> value) 
         => _model.TryGet(name, out value);
 
+    public T[] GetArray<T>(ReadOnlySpan<byte> name)
+    {
+        if (!_model.TryGet(name, out ReadOnlySpan<byte> value) || value.Length == 0)
+            throw new KeyNotFoundException($"Property '{Encoding.UTF8.GetString(name)}' not found or has no value.");
+        
+        // Use System.Text.Json to parse the array
+        var reader = new Utf8JsonReader(value);
+        if (!reader.Read() || reader.TokenType != JsonTokenType.StartArray)
+            throw new InvalidOperationException($"Property '{Encoding.UTF8.GetString(name)}' is not a JSON array.");
+        
+        var list = new List<T>();
+        while (reader.Read())
+        {
+            if (reader.TokenType == JsonTokenType.EndArray)
+                break;
+            
+            // Deserialize each element
+            if (typeof(T) == typeof(string))
+            {
+                list.Add((T)(object)reader.GetString()!);
+            }
+            else if (typeof(T) == typeof(double))
+            {
+                list.Add((T)(object)reader.GetDouble());
+            }
+            else if (typeof(T) == typeof(int))
+            {
+                list.Add((T)(object)reader.GetInt32());
+            }
+            else if (typeof(T) == typeof(float))
+            {
+                list.Add((T)(object)reader.GetSingle());
+            }
+            else if (typeof(T) == typeof(bool))
+            {
+                list.Add((T)(object)reader.GetBoolean());
+            }
+            else
+            {
+                // For complex types, get the raw JSON and deserialize
+                var element = JsonDocument.ParseValue(ref reader).RootElement;
+                list.Add(element.Deserialize<T>()!);
+            }
+        }
+        return list.ToArray();
+    }
+
     [EditorBrowsable(EditorBrowsableState.Never)]
     public void Write(Utf8JsonWriter writer, ModelReaderWriterOptions options)
         => _model.WriteAdditionalProperties(writer, options);

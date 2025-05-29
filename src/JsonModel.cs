@@ -55,6 +55,22 @@ public abstract class JsonModel<T> : IJsonModel<T>, IJsonModel
                 writer.WriteNumberValue((Single)objValue);
                 return SetValue(out value, stream, writer);
             }
+            if(type == typeof(double[]))
+            {
+                writer.WriteStartArray();
+                foreach (var d in (double[])objValue)
+                    writer.WriteNumberValue(d);
+                writer.WriteEndArray();
+                return SetValue(out value, stream, writer);
+            }
+            if(type == typeof(string[]))
+            {
+                writer.WriteStartArray();
+                foreach (var s in (string[])objValue)
+                    writer.WriteStringValue(s);
+                writer.WriteEndArray();
+                return SetValue(out value, stream, writer);
+            }
             throw new NotImplementedException($"Unsupported property type: {type}");
         }
 

@@ -49,6 +49,12 @@ public class Tests
         Assert.That(json.GetString("/names/1"u8), Is.EqualTo(input.Names[1]));
         Assert.That(json.GetDouble("/temperature"u8), Is.EqualTo(90d));
 
+        // Test GetArray<T> for numbers and names
+        var numbersArray = input.Json.GetArray<double>("numbers"u8);
+        Assert.That(numbersArray, Is.EqualTo(new double[] { 3.14, 7d }));
+        var namesArray = input.Json.GetArray<string>("names"u8);
+        Assert.That(namesArray, Is.EqualTo(new string[] { "my first building", "PI" }));
+
         OutputModel output = """
         {
             "confidence": 0.95,
