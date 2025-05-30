@@ -317,93 +317,51 @@ public readonly struct JsonView
         // Get the parent object
         ReadOnlySpan<byte> parentJson = GetPropertyValue(propertyName);
         
-        // Parse it as JSON
-        var reader = new Utf8JsonReader(parentJson);
-        if (!reader.Read())
-            throw new InvalidOperationException("Failed to parse JSON");
-            
-        if (reader.TokenType != JsonTokenType.StartObject)
-            throw new InvalidOperationException($"Property '{Encoding.UTF8.GetString(propertyName)}' is not an object");
-
-        // Navigate through the nested path
-        ReadOnlySpan<byte> remainingPath = subPath;
+        // Parse parent as JSON document for easier navigation
+        JsonDocument doc = JsonDocument.Parse(parentJson.ToArray());
+        JsonElement root = doc.RootElement;
         
-        // Process each path segment
-        while (!remainingPath.IsEmpty)
+        if (root.ValueKind != JsonValueKind.Object)
+            throw new InvalidOperationException($"Property '{Encoding.UTF8.GetString(propertyName)}' is not an object");
+            
+        // Split the path into segments
+        string path = Encoding.UTF8.GetString(subPath);
+        string[] segments = path.Split('/');
+        
+        // Navigate through the segments
+        JsonElement current = root;
+        
+        // Process all but the last segment
+        for (int i = 0; i < segments.Length - 1; i++)
         {
-            // Get the current path segment
-            int slashIndex = remainingPath.IndexOf((byte)'/');
-            ReadOnlySpan<byte> currentSegment;
-            
-            if (slashIndex > 0)
-            {
-                currentSegment = remainingPath.Slice(0, slashIndex);
-                remainingPath = remainingPath.Slice(slashIndex + 1);
-            }
-            else
-            {
-                currentSegment = remainingPath;
-                remainingPath = ReadOnlySpan<byte>.Empty;
-            }
-            
-            // Parse the parent object
-            if (reader.TokenType == JsonTokenType.StartObject)
-            {
-                bool foundProperty = false;
+            if (!current.TryGetProperty(segments[i], out current))
+                throw new KeyNotFoundException($"Property '{segments[i]}' not found in nested object");
                 
-                // Look for the property in the object
-                while (reader.Read())
-                {
-                    if (reader.TokenType == JsonTokenType.EndObject)
-                        throw new KeyNotFoundException($"Property '{Encoding.UTF8.GetString(currentSegment)}' not found in object");
-                        
-                    if (reader.TokenType == JsonTokenType.PropertyName)
-                    {
-                        // Compare the property name
-                        string propName = reader.GetString();
-                        string segmentString = Encoding.UTF8.GetString(currentSegment);
-                        
-                        if (propName == segmentString)
-                        {
-                            // Found the property, move to its value
-                            reader.Read();
-                            foundProperty = true;
-                            break;
-                        }
-                    }
-                }
-                
-                if (!foundProperty)
-                    throw new KeyNotFoundException($"Property '{Encoding.UTF8.GetString(currentSegment)}' not found in object");
-            }
-            else
-            {
-                throw new InvalidOperationException("Cannot navigate into a non-object value");
-            }
-            
-            // If we have more path segments, ensure the current value is an object
-            if (!remainingPath.IsEmpty && reader.TokenType != JsonTokenType.StartObject)
-            {
-                throw new InvalidOperationException($"Cannot navigate further into a non-object value for path '{Encoding.UTF8.GetString(subPath)}'");
-            }
+            if (current.ValueKind != JsonValueKind.Object)
+                throw new InvalidOperationException($"Property '{segments[i]}' is not an object");
         }
         
-        // We've reached the final property value
+        // Process the last segment to get the value
+        string lastSegment = segments[segments.Length - 1];
+        if (!current.TryGetProperty(lastSegment, out JsonElement value))
+            throw new KeyNotFoundException($"Property '{lastSegment}' not found in object");
+            
+        // Return the value based on the requested type
         if (typeof(T) == typeof(string))
         {
-            return (T)(object)reader.GetString();
+            return (T)(object)value.GetString();
         }
         else if (typeof(T) == typeof(double))
         {
-            return (T)(object)reader.GetDouble();
+            return (T)(object)value.GetDouble();
         }
         else if (typeof(T) == typeof(int))
         {
-            return (T)(object)reader.GetInt32();
+            return (T)(object)value.GetInt32();
         }
         else if (typeof(T) == typeof(bool))
         {
-            return (T)(object)reader.GetBoolean();
+            return (T)(object)value.GetBoolean();
         }
         else
         {
@@ -471,109 +429,83 @@ public readonly struct JsonView
         // Get current array
         ReadOnlySpan<byte> currentJson = GetPropertyValue(arrayProperty);
 
-        // Parse existing array
-        var reader = new Utf8JsonReader(currentJson);
-        if (!reader.Read() || reader.TokenType != JsonTokenType.StartArray)
-        {
+        // Parse existing array as a document for easier navigation
+        JsonDocument doc = JsonDocument.Parse(currentJson.ToArray());
+        JsonElement root = doc.RootElement;
+        
+        if (root.ValueKind != JsonValueKind.Array)
             throw new InvalidOperationException($"Property '{Encoding.UTF8.GetString(arrayProperty)}' is not an array");
-        }
-
-        // Find the array item
-        int currentIndex1 = 0;
-        while (reader.Read())
+            
+        // Check if the array has enough elements
+        if (index >= root.GetArrayLength())
+            throw new IndexOutOfRangeException($"Array index {index} is out of range");
+            
+        // Get the array element at the index
+        JsonElement element = root.EnumerateArray().ElementAt(index);
+        
+        // If we have a remaining path, navigate into the object
+        if (!remainingPath.IsEmpty)
         {
-            if (reader.TokenType == JsonTokenType.EndArray)
+            if (element.ValueKind != JsonValueKind.Object)
+                throw new InvalidOperationException($"Cannot navigate into array element at index {index} because it's not an object");
+                
+            // Parse the nested path
+            string path = Encoding.UTF8.GetString(remainingPath);
+            string[] segments = path.Split('/');
+            
+            // Navigate through the segments
+            JsonElement current = element;
+            
+            foreach (string segment in segments)
             {
-                throw new IndexOutOfRangeException($"Array index {index} is out of range");
+                if (!current.TryGetProperty(segment, out current))
+                    throw new KeyNotFoundException($"Property '{segment}' not found in array element at index {index}");
             }
             
-            if (currentIndex1 == index)
+            // Return the typed value
+            if (typeof(T) == typeof(string))
             {
-                // If there's a nested path, we need special handling
-                if (!remainingPath.IsEmpty)
-                {
-                    // For object nesting after array access (items/0/id)
-                    if (reader.TokenType == JsonTokenType.StartObject)
-                    {
-                        // Parse the object
-                        JsonDocument doc = JsonDocument.ParseValue(ref reader);
-                        JsonElement element = doc.RootElement;
-                        
-                        // Navigate to the property using JsonElement APIs
-                        JsonElement current = element;
-                        
-                        // Process each path segment
-                        ReadOnlySpan<byte> path = remainingPath;
-                        while (!path.IsEmpty)
-                        {
-                            // Get current segment
-                            slashIndex = path.IndexOf((byte)'/');
-                            ReadOnlySpan<byte> segment;
-                            
-                            if (slashIndex > 0)
-                            {
-                                segment = path.Slice(0, slashIndex);
-                                path = path.Slice(slashIndex + 1);
-                            }
-                            else
-                            {
-                                segment = path;
-                                path = ReadOnlySpan<byte>.Empty;
-                            }
-                            
-                            string segmentName = Encoding.UTF8.GetString(segment);
-                            if (!current.TryGetProperty(segmentName, out current))
-                            {
-                                throw new KeyNotFoundException($"Property '{segmentName}' not found in array element at index {index}");
-                            }
-                        }
-                        
-                        // Get the typed value from JsonElement
-                        if (typeof(T) == typeof(string))
-                        {
-                            return (T)(object)current.GetString();
-                        }
-                        else if (typeof(T) == typeof(double))
-                        {
-                            return (T)(object)current.GetDouble();
-                        }
-                        else if (typeof(T) == typeof(int))
-                        {
-                            return (T)(object)current.GetInt32();
-                        }
-                        else
-                        {
-                            throw new NotSupportedException($"Type {typeof(T)} is not supported for nested array item access");
-                        }
-                    }
-                    else
-                    {
-                        throw new InvalidOperationException($"Cannot navigate into a non-object value at array index {index}");
-                    }
-                }
-                
-                // Direct value access
-                if (typeof(T) == typeof(string))
-                {
-                    return (T)(object)reader.GetString()!;
-                }
-                else if (typeof(T) == typeof(double))
-                {
-                    return (T)(object)reader.GetDouble();
-                }
-                else if (typeof(T) == typeof(int))
-                {
-                    return (T)(object)reader.GetInt32();
-                }
-                else
-                {
-                    throw new NotSupportedException($"Type {typeof(T)} is not supported for array item access");
-                }
+                return (T)(object)current.GetString();
             }
-            currentIndex1++;
+            else if (typeof(T) == typeof(double))
+            {
+                return (T)(object)current.GetDouble();
+            }
+            else if (typeof(T) == typeof(int))
+            {
+                return (T)(object)current.GetInt32();
+            }
+            else if (typeof(T) == typeof(bool))
+            {
+                return (T)(object)current.GetBoolean();
+            }
+            else
+            {
+                throw new NotSupportedException($"Type {typeof(T)} is not supported for nested array item access");
+            }
         }
         
-        throw new IndexOutOfRangeException($"Array index {index} is out of range");
+        // Direct value access
+        if (typeof(T) == typeof(string))
+        {
+            return (T)(object)element.GetString();
+        }
+        else if (typeof(T) == typeof(double))
+        {
+            return (T)(object)element.GetDouble();
+        }
+        else if (typeof(T) == typeof(int))
+        {
+            return (T)(object)element.GetInt32();
+        }
+        else if (typeof(T) == typeof(bool))
+        {
+            return (T)(object)element.GetBoolean();
+        }
+        else
+        {
+            throw new NotSupportedException($"Type {typeof(T)} is not supported for array item access");
+        }
     }
     // get spillover (or real?) property or array value
     public bool TryGet(string name, out ReadOnlySpan<byte> value)

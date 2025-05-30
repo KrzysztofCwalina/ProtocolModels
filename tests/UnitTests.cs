@@ -118,7 +118,20 @@ public class Tests
             "bar": { 
                 "baz" : 1,
                 "name" : "test value"
-            }
+            },
+            "nested": { 
+                "level1": {
+                    "level2": {
+                        "value": 42,
+                        "name": "deep nested"
+                    }
+                },
+                "simple": 100
+            },
+            "items": [
+                { "id": 1, "name": "item1" },
+                { "id": 2, "name": "item2" }
+            ]
         }
         """u8;
 
@@ -127,5 +140,14 @@ public class Tests
         
         // Test string access
         Assert.That(input.Json.GetString("bar/name"u8), Is.EqualTo("test value"));
+        
+        // Test deeply nested paths
+        Assert.That(input.Json.GetDouble("nested/simple"u8), Is.EqualTo(100));
+        Assert.That(input.Json.GetDouble("nested/level1/level2/value"u8), Is.EqualTo(42));
+        Assert.That(input.Json.GetString("nested/level1/level2/name"u8), Is.EqualTo("deep nested"));
+        
+        // Test array access with paths
+        Assert.That(input.Json.GetDouble("items/0/id"u8), Is.EqualTo(1));
+        Assert.That(input.Json.GetString("items/1/name"u8), Is.EqualTo("item2"));
     }
 }
