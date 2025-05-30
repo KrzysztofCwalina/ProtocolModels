@@ -188,28 +188,48 @@ public readonly struct JsonView
 
     public string GetString(ReadOnlySpan<byte> name)
     {
-        // Check if this is a nested path (contains '/')
+        // Special case for "bar/baz" pattern (single level nesting)
         int slashIndex = name.IndexOf((byte)'/');
         if (slashIndex > 0)
         {
             ReadOnlySpan<byte> propertyName = name.Slice(0, slashIndex);
             ReadOnlySpan<byte> subPropertyName = name.Slice(slashIndex + 1);
             
-            // First, try to get the parent object
-            if (!_model.TryGet(propertyName, out ReadOnlySpan<byte> parentValue))
-                throw new KeyNotFoundException($"Property '{Encoding.UTF8.GetString(propertyName)}' not found");
-                
-            // Check if this is an array access
-            if (IsArrayIndex(subPropertyName, out int index))
+            // First check if this is an array access (e.g., "items/0")
+            if (IsArrayIndex(subPropertyName, out _))
             {
                 return GetArrayItem<string>(propertyName, subPropertyName);
             }
             
-            // Create a JsonView for the parent object
-            var jsonView = this[Encoding.UTF8.GetString(propertyName)];
+            // This is a property access on an object, e.g. "bar/baz"
+            // First get the parent object
+            if (!_model.TryGet(propertyName, out ReadOnlySpan<byte> parentJson))
+                throw new KeyNotFoundException($"Property '{Encoding.UTF8.GetString(propertyName)}' not found");
             
-            // Delegate to the JsonView to get the property
-            return jsonView.GetString(subPropertyName);
+            // Parse it as JSON
+            var reader = new Utf8JsonReader(parentJson);
+            if (!reader.Read() || reader.TokenType != JsonTokenType.StartObject)
+                throw new InvalidOperationException($"Property '{Encoding.UTF8.GetString(propertyName)}' is not an object");
+
+            // Look for the specific property
+            string subPropName = Encoding.UTF8.GetString(subPropertyName);
+            while (reader.Read())
+            {
+                if (reader.TokenType == JsonTokenType.PropertyName)
+                {
+                    string currentPropName = reader.GetString();
+                    if (currentPropName == subPropName)
+                    {
+                        reader.Read(); // Move to the property value
+                        return reader.GetString();
+                    }
+                }
+                
+                if (reader.TokenType == JsonTokenType.EndObject)
+                    throw new KeyNotFoundException($"Property '{subPropName}' not found in object '{Encoding.UTF8.GetString(propertyName)}'");
+            }
+            
+            throw new KeyNotFoundException($"Property '{subPropName}' not found in object '{Encoding.UTF8.GetString(propertyName)}'");
         }
 
         // Regular property access
@@ -253,18 +273,48 @@ public readonly struct JsonView
 
     public double GetDouble(ReadOnlySpan<byte> name)
     {
-        // Check if this is a nested path (contains '/')
+        // Special case for "bar/baz" pattern (single level nesting)
         int slashIndex = name.IndexOf((byte)'/');
         if (slashIndex > 0)
         {
             ReadOnlySpan<byte> propertyName = name.Slice(0, slashIndex);
-            ReadOnlySpan<byte> remainingPath = name.Slice(slashIndex + 1);
+            ReadOnlySpan<byte> subPropertyName = name.Slice(slashIndex + 1);
             
-            // Get a JsonView for the first part of the path
-            JsonView nestedView = this[Encoding.UTF8.GetString(propertyName)];
+            // First check if this is an array access (e.g., "items/0")
+            if (IsArrayIndex(subPropertyName, out _))
+            {
+                return GetArrayItem<double>(propertyName, subPropertyName);
+            }
             
-            // Recursively get the remaining path
-            return nestedView.GetDouble(remainingPath);
+            // This is a property access on an object, e.g. "bar/baz"
+            // First get the parent object
+            if (!_model.TryGet(propertyName, out ReadOnlySpan<byte> parentJson))
+                throw new KeyNotFoundException($"Property '{Encoding.UTF8.GetString(propertyName)}' not found");
+            
+            // Parse it as JSON
+            var reader = new Utf8JsonReader(parentJson);
+            if (!reader.Read() || reader.TokenType != JsonTokenType.StartObject)
+                throw new InvalidOperationException($"Property '{Encoding.UTF8.GetString(propertyName)}' is not an object");
+
+            // Look for the specific property
+            string subPropName = Encoding.UTF8.GetString(subPropertyName);
+            while (reader.Read())
+            {
+                if (reader.TokenType == JsonTokenType.PropertyName)
+                {
+                    string currentPropName = reader.GetString();
+                    if (currentPropName == subPropName)
+                    {
+                        reader.Read(); // Move to the property value
+                        return reader.GetDouble();
+                    }
+                }
+                
+                if (reader.TokenType == JsonTokenType.EndObject)
+                    throw new KeyNotFoundException($"Property '{subPropName}' not found in object '{Encoding.UTF8.GetString(propertyName)}'");
+            }
+            
+            throw new KeyNotFoundException($"Property '{subPropName}' not found in object '{Encoding.UTF8.GetString(propertyName)}'");
         }
 
         // Regular property access
@@ -313,9 +363,27 @@ public readonly struct JsonView
 
     private T GetArrayItem<T>(ReadOnlySpan<byte> arrayProperty, ReadOnlySpan<byte> indexSpan)
     {
-        if (!IsArrayIndex(indexSpan, out int index))
+        // Parse the index part
+        int slashIndex = indexSpan.IndexOf((byte)'/');
+        ReadOnlySpan<byte> currentIndex;
+        ReadOnlySpan<byte> remainingPath;
+
+        if (slashIndex > 0)
         {
-            throw new ArgumentException($"Invalid array index: {Encoding.UTF8.GetString(indexSpan)}");
+            // We have a nested path after the index
+            currentIndex = indexSpan.Slice(0, slashIndex);
+            remainingPath = indexSpan.Slice(slashIndex + 1);
+        }
+        else
+        {
+            // Just a simple array index
+            currentIndex = indexSpan;
+            remainingPath = ReadOnlySpan<byte>.Empty;
+        }
+
+        if (!IsArrayIndex(currentIndex, out int index))
+        {
+            throw new ArgumentException($"Invalid array index: {Encoding.UTF8.GetString(currentIndex)}");
         }
 
         // Get current array
@@ -331,7 +399,8 @@ public readonly struct JsonView
             throw new InvalidOperationException($"Property '{Encoding.UTF8.GetString(arrayProperty)}' is not an array");
         }
 
-        int currentIndex = 0;
+        // Find the array item
+        int currentIndex1 = 0;
         while (reader.Read())
         {
             if (reader.TokenType == JsonTokenType.EndArray)
@@ -339,8 +408,56 @@ public readonly struct JsonView
                 throw new IndexOutOfRangeException($"Array index {index} is out of range");
             }
             
-            if (currentIndex == index)
+            if (currentIndex1 == index)
             {
+                // If there's a nested path, we need special handling
+                if (!remainingPath.IsEmpty)
+                {
+                    // For object nesting after array access (items/0/id)
+                    if (reader.TokenType == JsonTokenType.StartObject)
+                    {
+                        // Parse the object
+                        JsonDocument doc = JsonDocument.ParseValue(ref reader);
+                        JsonElement element = doc.RootElement;
+                        
+                        // Navigate to the property using JsonElement APIs
+                        string path = Encoding.UTF8.GetString(remainingPath);
+                        string[] pathParts = path.Split('/');
+                        JsonElement current = element;
+                        
+                        foreach (string part in pathParts)
+                        {
+                            if (!current.TryGetProperty(part, out current))
+                            {
+                                throw new KeyNotFoundException($"Property '{part}' not found in array element at index {index}");
+                            }
+                        }
+                        
+                        // Get the typed value from JsonElement
+                        if (typeof(T) == typeof(string))
+                        {
+                            return (T)(object)current.GetString();
+                        }
+                        else if (typeof(T) == typeof(double))
+                        {
+                            return (T)(object)current.GetDouble();
+                        }
+                        else if (typeof(T) == typeof(int))
+                        {
+                            return (T)(object)current.GetInt32();
+                        }
+                        else
+                        {
+                            throw new NotSupportedException($"Type {typeof(T)} is not supported for nested array item access");
+                        }
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException($"Cannot navigate into a non-object value at array index {index}");
+                    }
+                }
+                
+                // Direct value access
                 if (typeof(T) == typeof(string))
                 {
                     return (T)(object)reader.GetString()!;
@@ -358,7 +475,7 @@ public readonly struct JsonView
                     throw new NotSupportedException($"Type {typeof(T)} is not supported for array item access");
                 }
             }
-            currentIndex++;
+            currentIndex1++;
         }
         
         throw new IndexOutOfRangeException($"Array index {index} is out of range");

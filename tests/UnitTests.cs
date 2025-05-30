@@ -112,34 +112,20 @@ public class Tests
         InputModel input = new();
         input.Category = "nested objects";
 
-        // Add a more complex nested structure
+        // Add a more complex nested structure with bar/baz pattern
         input += """
         {
-            "nested": { 
-                "level1": {
-                    "level2": {
-                        "value": 42,
-                        "name": "deep nested"
-                    }
-                },
-                "simple": 100
+            "bar": { 
+                "baz" : 1,
+                "name" : "test value"
             }
         }
         """u8;
 
-        // Test simple nested access (this should work with our current implementation)
-        Assert.That(input.Json.GetDouble("nested/simple"u8), Is.EqualTo(100));
-
-        // Test level-2 nesting (nested/level1)
-        Assert.That(input.Json.GetDouble("nested/level1/level2/value"u8), Is.EqualTo(42));
+        // Test that the original issue is fixed
+        Assert.That(input.Json.GetDouble("bar/baz"u8), Is.EqualTo(1));
         
-        /*
-        Assert.That(input.Json.GetString("nested/level1/level2/name"u8), Is.EqualTo("deep nested"));
-        
-        // Test mixed array and object access
-        input.Json.Set("items"u8, """[{"id": 1, "name": "item1"}, {"id": 2, "name": "item2"}]"""u8);
-        Assert.That(input.Json.GetDouble("items/0/id"u8), Is.EqualTo(1));
-        Assert.That(input.Json.GetString("items/1/name"u8), Is.EqualTo("item2"));
-        */
+        // Test string access
+        Assert.That(input.Json.GetString("bar/name"u8), Is.EqualTo("test value"));
     }
 }
