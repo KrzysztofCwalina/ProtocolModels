@@ -61,3 +61,5 @@ nunit-*.xml
 /.vs/ProtocolModels/v17
 /.vs/ProtocolModels/CopilotIndices/17.14.719.50355/CodeChunks.db-wal
 *.db
+/.vs/ProtocolModels/CopilotIndices/17.14.719.50355/SemanticSymbols.db
+/.vs/ProtocolModels/CopilotIndices/17.14.719.50355/SemanticSymbols.db-wal
