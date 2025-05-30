@@ -41,7 +41,7 @@ public static class JsonPointer
     // TODO (pri 1): support null values for all types
     // TODO (pri 1): make sure JSON escaping works
     // TODO (pri 3): make sure JSON Pointer escaping works, e.g. "/a~/b"u8 finds property "a/b"
-    public static Utf8JsonReader Find(this ReadOnlySpan<byte> json, ReadOnlySpan<byte> jsonPointer)
+    private static Utf8JsonReader Find(this ReadOnlySpan<byte> json, ReadOnlySpan<byte> jsonPointer)
     {
         if (json.Length == 0) throw new ArgumentException("JSON document cannot be empty", nameof(json));
 
@@ -123,6 +123,6 @@ public static class JsonPointer
         throw new KeyNotFoundException($"{Encoding.UTF8.GetString(jsonPointer)} not found in JSON document");
     }
 
-    public static Utf8JsonReader Find(this BinaryData json, ReadOnlySpan<byte> jsonPointer)
+    private static Utf8JsonReader Find(this BinaryData json, ReadOnlySpan<byte> jsonPointer)
         => json.ToMemory().Span.Find(jsonPointer);
 }
