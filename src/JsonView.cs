@@ -204,31 +204,16 @@ public readonly struct JsonView
         // Regular property access
         if (_path.Length > 0)
         {
-            // We're already in a nested object
+            // We're already in a nested object, get the JSON for that path
             ReadOnlySpan<byte> json = GetPropertyValue(_path);
-                
-            // Create a JSON reader for the object
-            var reader = new Utf8JsonReader(json);
-            if (!reader.Read())
-                throw new InvalidOperationException("Failed to parse JSON");
-                
-            AssertStartObject(reader, _path);
-                
-            // Find the property
-            while (reader.Read())
-            {
-                if (reader.TokenType == JsonTokenType.PropertyName &&
-                    reader.ValueTextEquals(name))
-                {
-                    reader.Read();
-                    return reader.GetString();
-                }
-                
-                if (reader.TokenType == JsonTokenType.EndObject)
-                    AssertEndObject(reader, _path, name);
-            }
             
-            throw new KeyNotFoundException($"Property '{Encoding.UTF8.GetString(name)}' not found in object '{Encoding.UTF8.GetString(_path)}'");
+            // Create JSON pointer format for the property name
+            byte[] jsonPointer = new byte[name.Length + 1];
+            jsonPointer[0] = (byte)'/';
+            name.CopyTo(jsonPointer.AsSpan(1));
+            
+            // Use JsonPointer to find and extract the string value
+            return json.GetString(jsonPointer);
         }
         else
         {
@@ -260,31 +245,16 @@ public readonly struct JsonView
         // Regular property access
         if (_path.Length > 0)
         {
-            // We're already in a nested object
+            // We're already in a nested object, get the JSON for that path
             ReadOnlySpan<byte> json = GetPropertyValue(_path);
-                
-            // Create a JSON reader for the object
-            var reader = new Utf8JsonReader(json);
-            if (!reader.Read())
-                throw new InvalidOperationException("Failed to parse JSON");
-                
-            AssertStartObject(reader, _path);
-                
-            // Find the property
-            while (reader.Read())
-            {
-                if (reader.TokenType == JsonTokenType.PropertyName &&
-                    reader.ValueTextEquals(name))
-                {
-                    reader.Read();
-                    return reader.GetDouble();
-                }
-                
-                if (reader.TokenType == JsonTokenType.EndObject)
-                    AssertEndObject(reader, _path, name);
-            }
             
-            throw new KeyNotFoundException($"Property '{Encoding.UTF8.GetString(name)}' not found in object '{Encoding.UTF8.GetString(_path)}'");
+            // Create JSON pointer format for the property name
+            byte[] jsonPointer = new byte[name.Length + 1];
+            jsonPointer[0] = (byte)'/';
+            name.CopyTo(jsonPointer.AsSpan(1));
+            
+            // Use JsonPointer to find and extract the double value
+            return json.GetDouble(jsonPointer);
         }
         else
         {
@@ -300,6 +270,12 @@ public readonly struct JsonView
     }
 
     // Helper methods to improve readability
+    private static void AssertRead(Utf8JsonReader reader)
+    {
+        if (!reader.Read())
+            throw new InvalidOperationException("Failed to parse JSON");
+    }
+    
     private static void AssertStartObject(Utf8JsonReader reader, ReadOnlySpan<byte> propertyName)
     {
         if (reader.TokenType != JsonTokenType.StartObject)

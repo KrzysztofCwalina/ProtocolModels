@@ -36,6 +36,9 @@ public static class JsonPointer
     public static double GetDouble(this ReadOnlySpan<byte> json, ReadOnlySpan<byte> jsonPointer)
         => json.Find(jsonPointer).GetDouble();
 
+    public static string GetString(this ReadOnlySpan<byte> json, ReadOnlySpan<byte> jsonPointer)
+        => json.Find(jsonPointer).GetString()!;
+
     // TODO (pri 0): implement arrays, e.g. "/addresses/0/street"u8
     // TODO (pri 1): implement object graphs, e.g "/address/street"u8
     // TODO (pri 1): support null values for all types
