@@ -7,6 +7,7 @@ internal interface IJsonModel
 {
     bool TryGet(ReadOnlySpan<byte> name, out ReadOnlySpan<byte> value);
     void Set(ReadOnlySpan<byte> name, ReadOnlySpan<byte> value);
+    Type? GetPropertyType(ReadOnlySpan<byte> name);
 
     void WriteAdditionalProperties(Utf8JsonWriter writer, ModelReaderWriterOptions options);
 }
@@ -98,6 +99,9 @@ public abstract class JsonModel<T> : IJsonModel<T>, IJsonModel
         }
     }
 
+    Type? IJsonModel.GetPropertyType(ReadOnlySpan<byte> name)
+        => GetPropertyType(name);
+
     void IJsonModel.WriteAdditionalProperties(Utf8JsonWriter writer, ModelReaderWriterOptions options)
         => additionalProperties.Write(writer, options);
 
@@ -147,7 +151,37 @@ public abstract class JsonModel<T> : IJsonModel<T>, IJsonModel
         JsonElement root = jsonDocument.RootElement;;
         if (ptype == typeof(double[]))
         {
-            double[] array = root.EnumerateArray().Select(x => x.GetDouble()).ToArray();
+            var list = new List<double>();
+            foreach (var element in root.EnumerateArray())
+                list.Add(element.GetDouble());
+            double[] array = list.ToArray();
+            if (TrySetProperty(name, array))
+                return;
+        }
+        else if (ptype == typeof(string[]))
+        {
+            var list = new List<string>();
+            foreach (var element in root.EnumerateArray())
+                list.Add(element.GetString() ?? string.Empty);
+            string[] array = list.ToArray();
+            if (TrySetProperty(name, array))
+                return;
+        }
+        else if (ptype == typeof(int[]))
+        {
+            var list = new List<int>();
+            foreach (var element in root.EnumerateArray())
+                list.Add(element.GetInt32());
+            int[] array = list.ToArray();
+            if (TrySetProperty(name, array))
+                return;
+        }
+        else if (ptype == typeof(float[]))
+        {
+            var list = new List<float>();
+            foreach (var element in root.EnumerateArray())
+                list.Add(element.GetSingle());
+            float[] array = list.ToArray();
             if (TrySetProperty(name, array))
                 return;
         }
