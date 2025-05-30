@@ -145,85 +145,167 @@ public readonly struct JsonView
         }
     }
 
+    // We need to modify how nested paths are handled for deeper nesting
+    private ReadOnlySpan<byte> ResolveNestedPath(ReadOnlySpan<byte> name)
+    {
+        // Check if this is a nested path (contains '/')
+        int slashIndex = name.IndexOf((byte)'/');
+        if (slashIndex <= 0)
+            return name;  // No more nesting
+        
+        // Get the first part of the path
+        ReadOnlySpan<byte> firstSegment = name.Slice(0, slashIndex);
+        ReadOnlySpan<byte> remainingPath = name.Slice(slashIndex + 1);
+        
+        // Return just the first segment
+        return firstSegment;
+    }
+    
     public JsonView this[string name]
     {
-        get => new JsonView(_model, Encoding.UTF8.GetBytes(name));
+        get
+        {
+            // Create path by combining current path with new name
+            byte[] namePath = Encoding.UTF8.GetBytes(name);
+            byte[] fullPath;
+            
+            if (_path.Length > 0)
+            {
+                // We're already nested, append to the existing path
+                fullPath = new byte[_path.Length + 1 + namePath.Length];
+                _path.CopyTo(fullPath, 0);
+                fullPath[_path.Length] = (byte)'/';
+                namePath.CopyTo(fullPath, _path.Length + 1);
+            }
+            else
+            {
+                fullPath = namePath;
+            }
+            
+            return new JsonView(_model, fullPath);
+        }
     }
 
     public string GetString(ReadOnlySpan<byte> name)
     {
-        // Use the same path resolution logic as GetDouble
-        ReadOnlySpan<byte> json = GetValueForPath(name);
-        return json.AsString();
+        // Check if this is a nested path (contains '/')
+        int slashIndex = name.IndexOf((byte)'/');
+        if (slashIndex > 0)
+        {
+            ReadOnlySpan<byte> propertyName = name.Slice(0, slashIndex);
+            ReadOnlySpan<byte> subPropertyName = name.Slice(slashIndex + 1);
+            
+            // First, try to get the parent object
+            if (!_model.TryGet(propertyName, out ReadOnlySpan<byte> parentValue))
+                throw new KeyNotFoundException($"Property '{Encoding.UTF8.GetString(propertyName)}' not found");
+                
+            // Check if this is an array access
+            if (IsArrayIndex(subPropertyName, out int index))
+            {
+                return GetArrayItem<string>(propertyName, subPropertyName);
+            }
+            
+            // Create a JsonView for the parent object
+            var jsonView = this[Encoding.UTF8.GetString(propertyName)];
+            
+            // Delegate to the JsonView to get the property
+            return jsonView.GetString(subPropertyName);
+        }
+
+        // Regular property access
+        if (_path.Length > 0)
+        {
+            // We're already in a nested object
+            if (!_model.TryGet(_path, out ReadOnlySpan<byte> json))
+                throw new KeyNotFoundException($"Property '{Encoding.UTF8.GetString(_path)}' not found");
+                
+            // Create a JSON reader for the object
+            var reader = new Utf8JsonReader(json);
+            if (!reader.Read() || reader.TokenType != JsonTokenType.StartObject)
+                throw new InvalidOperationException($"Property '{Encoding.UTF8.GetString(_path)}' is not an object");
+                
+            // Find the property
+            string propName = Encoding.UTF8.GetString(name);
+            while (reader.Read())
+            {
+                if (reader.TokenType == JsonTokenType.PropertyName)
+                {
+                    string currentName = reader.GetString();
+                    if (currentName == propName)
+                    {
+                        reader.Read();
+                        return reader.GetString();
+                    }
+                }
+            }
+            
+            throw new KeyNotFoundException($"Property '{propName}' not found in object '{Encoding.UTF8.GetString(_path)}'");
+        }
+        else
+        {
+            // Direct property access on the model
+            if (!_model.TryGet(name, out ReadOnlySpan<byte> valueData))
+                throw new KeyNotFoundException($"Property '{Encoding.UTF8.GetString(name)}' not found");
+                
+            return valueData.AsString();
+        }
     }
 
     public double GetDouble(ReadOnlySpan<byte> name)
     {
-        // Use GetValueForPath to handle nested path resolution
-        ReadOnlySpan<byte> json = GetValueForPath(name);
-        return json.AsDouble();
-    }
-    
-    // Helper method to handle nested path navigation
-    private ReadOnlySpan<byte> GetValueForPath(ReadOnlySpan<byte> path)
-    {
-        // If this JsonView already has a path, we need to handle it
+        // Check if this is a nested path (contains '/')
+        int slashIndex = name.IndexOf((byte)'/');
+        if (slashIndex > 0)
+        {
+            ReadOnlySpan<byte> propertyName = name.Slice(0, slashIndex);
+            ReadOnlySpan<byte> remainingPath = name.Slice(slashIndex + 1);
+            
+            // Get a JsonView for the first part of the path
+            JsonView nestedView = this[Encoding.UTF8.GetString(propertyName)];
+            
+            // Recursively get the remaining path
+            return nestedView.GetDouble(remainingPath);
+        }
+
+        // Regular property access
         if (_path.Length > 0)
         {
-            if (!_model.TryGet(_path, out var nestedValue))
+            // We're already in a nested object
+            if (!_model.TryGet(_path, out ReadOnlySpan<byte> json))
                 throw new KeyNotFoundException($"Property '{Encoding.UTF8.GetString(_path)}' not found");
-            
-            // Create a JSON pointer with the path
-            var pathBytes = new byte[path.Length + 1];
-            pathBytes[0] = (byte)'/';
-            path.CopyTo(pathBytes.AsSpan(1));
-            var jsonPointer = pathBytes;
-            
-            var reader = nestedValue.Find(jsonPointer);
-            return reader.ValueSpan;
-        }
-        
-        // If no slashes, it's a direct property access
-        int slashIndex = path.IndexOf((byte)'/');
-        if (slashIndex < 0)
-        {
-            if (!_model.TryGet(path, out var value))
-                throw new KeyNotFoundException($"Property '{Encoding.UTF8.GetString(path)}' not found");
-            return value;
-        }
-        
-        // We have a path with at least one slash
-        var firstSegmentBytes = new byte[slashIndex];
-        path.Slice(0, slashIndex).CopyTo(firstSegmentBytes);
-        var firstSegment = firstSegmentBytes.AsSpan();
-        
-        var remainingPathBytes = new byte[path.Length - slashIndex - 1];
-        path.Slice(slashIndex + 1).CopyTo(remainingPathBytes);
-        var remainingPath = remainingPathBytes.AsSpan();
-        
-        // Get the value for the first segment
-        if (_model.TryGet(firstSegment, out var segmentValue))
-        {
-            // Convert the remaining path to a JSON pointer (starts with /)
-            var jsonPointerBytes = new byte[remainingPath.Length + 1];
-            jsonPointerBytes[0] = (byte)'/';
-            remainingPath.CopyTo(jsonPointerBytes.AsSpan(1));
-            var jsonPointer = jsonPointerBytes;
-            
-            try
+                
+            // Create a JSON reader for the object
+            var reader = new Utf8JsonReader(json);
+            if (!reader.Read() || reader.TokenType != JsonTokenType.StartObject)
+                throw new InvalidOperationException($"Property '{Encoding.UTF8.GetString(_path)}' is not an object");
+                
+            // Find the property
+            string propName = Encoding.UTF8.GetString(name);
+            while (reader.Read())
             {
-                var reader = segmentValue.Find(jsonPointer);
-                return reader.ValueSpan;
+                if (reader.TokenType == JsonTokenType.PropertyName)
+                {
+                    string currentName = reader.GetString();
+                    if (currentName == propName)
+                    {
+                        reader.Read();
+                        return reader.GetDouble();
+                    }
+                }
             }
-            catch (Exception ex)
-            {
-                throw new KeyNotFoundException($"Error accessing path '{Encoding.UTF8.GetString(path)}': {ex.Message}", ex);
-            }
+            
+            throw new KeyNotFoundException($"Property '{propName}' not found in object '{Encoding.UTF8.GetString(_path)}'");
         }
-        
-        throw new KeyNotFoundException($"Property '{Encoding.UTF8.GetString(firstSegment)}' not found");
+        else
+        {
+            // Direct property access on the model
+            if (!_model.TryGet(name, out ReadOnlySpan<byte> valueData))
+                throw new KeyNotFoundException($"Property '{Encoding.UTF8.GetString(name)}' not found");
+                
+            return valueData.AsDouble();
+        }
     }
-
+    
     private bool IsArrayIndex(ReadOnlySpan<byte> indexSpan, out int index)
     {
         return Utf8Parser.TryParse(indexSpan, out index, out _);

@@ -21,21 +21,6 @@ public static class JsonPointer
         Debug.Assert(success, "JSON must be valid UTF-8 and parseable as JSON");
         return reader.GetDouble();
     }
-
-    public static double AsDouble(this ReadOnlySpan<byte> json, ReadOnlySpan<byte> path)
-    {
-        // Handle the path as a JSON pointer
-        if (path.Length > 0)
-        {
-            Span<byte> jsonPointer = stackalloc byte[path.Length + 1];
-            jsonPointer[0] = (byte)'/';
-            path.CopyTo(jsonPointer.Slice(1));
-            return json.GetDouble(jsonPointer);
-        }
-        
-        // If no path, just treat it as a direct value
-        return json.AsDouble();
-    }
     public static string? GetString(this BinaryData json, ReadOnlySpan<byte> jsonPointer)
         => json.Find(jsonPointer).GetString();
     public static ReadOnlySpan<byte> ReadUtf8(this BinaryData json, ReadOnlySpan<byte> jsonPointer)
