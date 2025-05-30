@@ -59,3 +59,5 @@ nunit-*.xml
 /.vs/ProtocolModels/FileContentIndex
 /.vs/ProtocolModels/v17/TestStore/0
 /.vs/ProtocolModels/v17
+/.vs/ProtocolModels/CopilotIndices/17.14.719.50355/CodeChunks.db-wal
+*.db
