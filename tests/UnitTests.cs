@@ -41,23 +41,14 @@ public class Tests
         var ex2 = Assert.Throws<IndexOutOfRangeException>(() => input.Json.Set("numbers/5"u8, 42.0));
         Assert.That(ex2.Message, Does.Contain("out of range"));
         
-        // Test alternative syntax with the indexer
+        // Test direct syntax
         input.Json.Set("test"u8, "[100.0, 200.0]"u8);
-        var element = input.Json["test/1"u8];
-        element.Set(999.0);
+        input.Json.Set("test/1"u8, 999.0);
         Assert.That(input.Json.GetDouble("test/1"u8), Is.EqualTo(999.0));
         
-        // Test that indexer also fails for non-existent arrays  
-        var element2 = input.Json["missing/0"u8];
-        try
-        {
-            element2.Set(123.0);
-            Assert.Fail("Expected InvalidOperationException");
-        }
-        catch (InvalidOperationException)
-        {
-            // Expected
-        }
+        // Test that direct set also fails for non-existent arrays  
+        var ex3 = Assert.Throws<InvalidOperationException>(() => input.Json.Set("missing/0"u8, 123.0));
+        Assert.That(ex3.Message, Does.Contain("does not exist"));
     }
 
     [Test]
