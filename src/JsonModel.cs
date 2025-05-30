@@ -6,6 +6,7 @@ using System.Text.Json;
 internal interface IJsonModel
 {
     bool TryGet(ReadOnlySpan<byte> name, out ReadOnlySpan<byte> value);
+    ReadOnlySpan<byte> Get(ReadOnlySpan<byte> name);
     void Set(ReadOnlySpan<byte> name, ReadOnlySpan<byte> value);
     Type? GetPropertyType(ReadOnlySpan<byte> name);
 
@@ -84,6 +85,13 @@ public abstract class JsonModel<T> : IJsonModel<T>, IJsonModel
             value = stream.GetBuffer().AsSpan(0, (int)stream.Position);
             return true;
         }
+    }
+
+    ReadOnlySpan<byte> IJsonModel.Get(ReadOnlySpan<byte> name)
+    {
+        if (!((IJsonModel)this).TryGet(name, out ReadOnlySpan<byte> value))
+            throw new KeyNotFoundException($"Property '{Encoding.UTF8.GetString(name)}' not found");
+        return value;
     }
 
     void IJsonModel.Set(ReadOnlySpan<byte> name, ReadOnlySpan<byte> value)
@@ -242,6 +250,19 @@ public struct JsonProperties
     {
         string strName = Encoding.UTF8.GetString(name);
         return TryGet(strName, out value);
+    }
+
+    public ReadOnlySpan<byte> Get(string name)
+    {
+        if (!TryGet(name, out ReadOnlySpan<byte> value))
+            throw new KeyNotFoundException($"Property '{name}' not found");
+        return value;
+    }
+
+    public ReadOnlySpan<byte> Get(ReadOnlySpan<byte> name)
+    {
+        string strName = Encoding.UTF8.GetString(name);
+        return Get(strName);
     }
 
     internal void Write(Utf8JsonWriter writer, ModelReaderWriterOptions options)

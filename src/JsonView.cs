@@ -91,10 +91,7 @@ public readonly struct JsonView
         Type? propertyType = _model.GetPropertyType(arrayProperty);
         
         // Get current array - must exist
-        if (!_model.TryGet(arrayProperty, out ReadOnlySpan<byte> currentJson))
-        {
-            throw new InvalidOperationException($"Array property '{Encoding.UTF8.GetString(arrayProperty)}' does not exist");
-        }
+        ReadOnlySpan<byte> currentJson = _model.Get(arrayProperty);
 
         // Use typed array handling based on property type
         Type? elementType = propertyType?.IsArray == true ? propertyType.GetElementType() : null;
@@ -192,7 +189,7 @@ public readonly struct JsonView
             ReadOnlySpan<byte> subPropertyName = name.Slice(slashIndex + 1);
             
             // First check if this is an array access (e.g., "items/0")
-            if (IsArrayIndex(subPropertyName, out _))
+            if (subPropertyName.IsValidArrayIndex(out _))
             {
                 return GetArrayItem<string>(propertyName, subPropertyName);
             }
@@ -233,7 +230,7 @@ public readonly struct JsonView
             ReadOnlySpan<byte> subPropertyName = name.Slice(slashIndex + 1);
             
             // First check if this is an array access (e.g., "items/0")
-            if (IsArrayIndex(subPropertyName, out _))
+            if (subPropertyName.IsValidArrayIndex(out _))
             {
                 return GetArrayItem<double>(propertyName, subPropertyName);
             }
@@ -266,26 +263,10 @@ public readonly struct JsonView
     
     private bool IsArrayIndex(ReadOnlySpan<byte> indexSpan, out int index)
     {
-        return Utf8Parser.TryParse(indexSpan, out index, out _);
+        return indexSpan.IsValidArrayIndex(out index);
     }
 
-    // Helper methods to improve readability
-    private static void AssertRead(Utf8JsonReader reader)
-    {
-        if (!reader.Read())
-            throw new InvalidOperationException("Failed to parse JSON");
-    }
-    
-    private static void AssertStartObject(Utf8JsonReader reader, ReadOnlySpan<byte> propertyName)
-    {
-        if (reader.TokenType != JsonTokenType.StartObject)
-            throw new InvalidOperationException($"Property '{Encoding.UTF8.GetString(propertyName)}' is not an object");
-    }
-    
-    private static void AssertEndObject(Utf8JsonReader reader, ReadOnlySpan<byte> propertyName, ReadOnlySpan<byte> subPropertyName)
-    {
-        throw new KeyNotFoundException($"Property '{Encoding.UTF8.GetString(subPropertyName)}' not found in object '{Encoding.UTF8.GetString(propertyName)}'");
-    }
+
     
     // Helper method to navigate nested properties and arrays
     private T GetValueByPath<T>(ReadOnlySpan<byte> propertyName, ReadOnlySpan<byte> subPath)
@@ -310,64 +291,17 @@ public readonly struct JsonView
         // Process all segments
         foreach (string segment in segments)
         {
-            current = NavigateToSegment(current, segment);
+            current = current.NavigateToSegment(segment);
         }
         
         // Return the typed value
-        return GetTypedValue<T>(current);
+        return current.GetTypedValue<T>();
     }
-    
-    // Helper method to navigate to a specific segment (property or array index)
-    private static JsonElement NavigateToSegment(JsonElement current, string segment)
-    {
-        // Check if this segment is an array index
-        if (int.TryParse(segment, out int index))
-        {
-            // This might be an array index, but we should check the current element type
-            if (current.ValueKind == JsonValueKind.Array)
-            {
-                if (index >= current.GetArrayLength())
-                    throw new IndexOutOfRangeException($"Array index {index} is out of range");
-                return current.EnumerateArray().ElementAt(index);
-            }
-        }
-        
-        // Treat as object property
-        if (!current.TryGetProperty(segment, out JsonElement next))
-            throw new KeyNotFoundException($"Property '{segment}' not found in object");
-        return next;
-    }
-    
-    // Helper method to get typed value from JsonElement
-    private static T GetTypedValue<T>(JsonElement element)
-    {
-        if (typeof(T) == typeof(string))
-        {
-            return (T)(object)element.GetString()!;
-        }
-        else if (typeof(T) == typeof(double))
-        {
-            return (T)(object)element.GetDouble();
-        }
-        else if (typeof(T) == typeof(int))
-        {
-            return (T)(object)element.GetInt32();
-        }
-        else if (typeof(T) == typeof(bool))
-        {
-            return (T)(object)element.GetBoolean();
-        }
-        else
-        {
-            throw new NotSupportedException($"Type {typeof(T)} is not supported for path access");
-        }
-    }
+
     // Internal Get methods that throw exceptions directly
     private ReadOnlySpan<byte> GetPropertyValue(ReadOnlySpan<byte> name)
     {
-        if (!_model.TryGet(name, out ReadOnlySpan<byte> value))
-            throw new KeyNotFoundException($"Property '{Encoding.UTF8.GetString(name)}' not found");
-        return value;
+        return _model.Get(name);
     }
     
     private ReadOnlySpan<byte> GetNestedPropertyValue(ReadOnlySpan<byte> parentName, ReadOnlySpan<byte> propertyPath)
@@ -390,7 +324,7 @@ public readonly struct JsonView
         if (!reader.Read())
             throw new InvalidOperationException("Failed to parse JSON");
             
-        AssertStartObject(reader, parentName);
+        reader.AssertStartObject(parentName);
         
         // Implement JSON navigation to find the property
         throw new NotImplementedException("Multi-level path navigation is not implemented yet");
@@ -456,50 +390,12 @@ public readonly struct JsonView
                     throw new KeyNotFoundException($"Property '{segment}' not found in array element at index {index}");
             }
             
-            // Return the typed value
-            if (typeof(T) == typeof(string))
-            {
-                return (T)(object)current.GetString();
-            }
-            else if (typeof(T) == typeof(double))
-            {
-                return (T)(object)current.GetDouble();
-            }
-            else if (typeof(T) == typeof(int))
-            {
-                return (T)(object)current.GetInt32();
-            }
-            else if (typeof(T) == typeof(bool))
-            {
-                return (T)(object)current.GetBoolean();
-            }
-            else
-            {
-                throw new NotSupportedException($"Type {typeof(T)} is not supported for nested array item access");
-            }
+            // Return the typed value using extension method
+            return current.GetTypedValue<T>();
         }
         
-        // Direct value access
-        if (typeof(T) == typeof(string))
-        {
-            return (T)(object)element.GetString();
-        }
-        else if (typeof(T) == typeof(double))
-        {
-            return (T)(object)element.GetDouble();
-        }
-        else if (typeof(T) == typeof(int))
-        {
-            return (T)(object)element.GetInt32();
-        }
-        else if (typeof(T) == typeof(bool))
-        {
-            return (T)(object)element.GetBoolean();
-        }
-        else
-        {
-            throw new NotSupportedException($"Type {typeof(T)} is not supported for array item access");
-        }
+        // Direct value access using extension method
+        return element.GetTypedValue<T>();
     }
     // get spillover (or real?) property or array value
     public bool TryGet(string name, out ReadOnlySpan<byte> value)
@@ -507,9 +403,15 @@ public readonly struct JsonView
     public bool TryGet(ReadOnlySpan<byte> name, out ReadOnlySpan<byte> value) 
         => _model.TryGet(name, out value);
 
+    public ReadOnlySpan<byte> Get(string name)
+        => Get(Encoding.UTF8.GetBytes(name));
+    public ReadOnlySpan<byte> Get(ReadOnlySpan<byte> name) 
+        => _model.Get(name);
+
     public T[] GetArray<T>(ReadOnlySpan<byte> name)
     {
-        if (!_model.TryGet(name, out ReadOnlySpan<byte> value) || value.Length == 0)
+        ReadOnlySpan<byte> value = _model.Get(name);
+        if (value.Length == 0)
             throw new KeyNotFoundException($"Property '{Encoding.UTF8.GetString(name)}' not found or has no value.");
         
         // Use System.Text.Json to parse the array
