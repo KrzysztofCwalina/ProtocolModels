@@ -6,7 +6,6 @@ using System.Text.Json;
 internal interface IJsonModel
 {
     bool TryGet(ReadOnlySpan<byte> name, out ReadOnlySpan<byte> value);
-    ReadOnlySpan<byte> Get(ReadOnlySpan<byte> name);
     void Set(ReadOnlySpan<byte> name, ReadOnlySpan<byte> value);
     Type? GetPropertyType(ReadOnlySpan<byte> name);
 
@@ -85,13 +84,6 @@ public abstract class JsonModel<T> : IJsonModel<T>, IJsonModel
             value = stream.GetBuffer().AsSpan(0, (int)stream.Position);
             return true;
         }
-    }
-
-    ReadOnlySpan<byte> IJsonModel.Get(ReadOnlySpan<byte> name)
-    {
-        if (!((IJsonModel)this).TryGet(name, out ReadOnlySpan<byte> value))
-            throw new KeyNotFoundException($"Property '{Encoding.UTF8.GetString(name)}' not found");
-        return value;
     }
 
     void IJsonModel.Set(ReadOnlySpan<byte> name, ReadOnlySpan<byte> value)
@@ -252,19 +244,6 @@ public struct JsonProperties
         return TryGet(strName, out value);
     }
 
-    public ReadOnlySpan<byte> Get(string name)
-    {
-        if (!TryGet(name, out ReadOnlySpan<byte> value))
-            throw new KeyNotFoundException($"Property '{name}' not found");
-        return value;
-    }
-
-    public ReadOnlySpan<byte> Get(ReadOnlySpan<byte> name)
-    {
-        string strName = Encoding.UTF8.GetString(name);
-        return Get(strName);
-    }
-
     internal void Write(Utf8JsonWriter writer, ModelReaderWriterOptions options)
     {
         foreach (var kvp in _properties)
@@ -274,5 +253,46 @@ public struct JsonProperties
         }
     }
 
+}
+
+/// <summary>
+/// Extension methods for IJsonModel
+/// </summary>
+internal static class JsonModelExtensions
+{
+    public static ReadOnlySpan<byte> Get(this IJsonModel model, string name)
+    {
+        ReadOnlySpan<byte> nameBytes = Encoding.UTF8.GetBytes(name);
+        if (!model.TryGet(nameBytes, out ReadOnlySpan<byte> value))
+            throw new KeyNotFoundException($"Property '{name}' not found");
+        return value;
+    }
+
+    public static ReadOnlySpan<byte> Get(this IJsonModel model, ReadOnlySpan<byte> name)
+    {
+        if (!model.TryGet(name, out ReadOnlySpan<byte> value))
+        {
+            // Only convert to string for the exception message
+            throw new KeyNotFoundException($"Property not found");
+        }
+        return value;
+    }
+
+    public static ReadOnlySpan<byte> Get(this JsonProperties properties, string name)
+    {
+        if (!properties.TryGet(name, out ReadOnlySpan<byte> value))
+            throw new KeyNotFoundException($"Property '{name}' not found");
+        return value;
+    }
+
+    public static ReadOnlySpan<byte> Get(this JsonProperties properties, ReadOnlySpan<byte> name)
+    {
+        if (!properties.TryGet(name, out ReadOnlySpan<byte> value))
+        {
+            // Only convert to string for the exception message
+            throw new KeyNotFoundException($"Property not found");
+        }
+        return value;
+    }
 }
 

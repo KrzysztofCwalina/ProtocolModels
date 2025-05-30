@@ -181,21 +181,19 @@ public readonly struct JsonView
 
     public string GetString(ReadOnlySpan<byte> name)
     {
-        // Handle nested paths
+        // Handle nested paths using span operations
         int slashIndex = name.IndexOf((byte)'/');
         if (slashIndex > 0)
         {
+            // Split into property name and sub-path
             ReadOnlySpan<byte> propertyName = name.Slice(0, slashIndex);
-            ReadOnlySpan<byte> subPropertyName = name.Slice(slashIndex + 1);
+            ReadOnlySpan<byte> subPath = name.Slice(slashIndex); // Keep the leading slash for JsonPointer
             
-            // First check if this is an array access (e.g., "items/0")
-            if (subPropertyName.IsValidArrayIndex(out _))
-            {
-                return GetArrayItem<string>(propertyName, subPropertyName);
-            }
+            // Get the JSON for the property
+            ReadOnlySpan<byte> propertyJson = GetPropertyValue(propertyName);
             
-            // Handle nested property access
-            return GetValueByPath<string>(propertyName, subPropertyName);
+            // Use JsonPointer to navigate the remaining path
+            return propertyJson.GetString(subPath);
         }
 
         // Regular property access
@@ -205,9 +203,7 @@ public readonly struct JsonView
             ReadOnlySpan<byte> json = GetPropertyValue(_path);
             
             // Create JSON pointer format for the property name
-            byte[] jsonPointer = new byte[name.Length + 1];
-            jsonPointer[0] = (byte)'/';
-            name.CopyTo(jsonPointer.AsSpan(1));
+            ReadOnlySpan<byte> jsonPointer = ConstructJsonPointer(name);
             
             // Use JsonPointer to find and extract the string value
             return json.GetString(jsonPointer);
@@ -222,21 +218,19 @@ public readonly struct JsonView
 
     public double GetDouble(ReadOnlySpan<byte> name)
     {
-        // Handle nested paths
+        // Handle nested paths using span operations
         int slashIndex = name.IndexOf((byte)'/');
         if (slashIndex > 0)
         {
+            // Split into property name and sub-path
             ReadOnlySpan<byte> propertyName = name.Slice(0, slashIndex);
-            ReadOnlySpan<byte> subPropertyName = name.Slice(slashIndex + 1);
+            ReadOnlySpan<byte> subPath = name.Slice(slashIndex); // Keep the leading slash for JsonPointer
             
-            // First check if this is an array access (e.g., "items/0")
-            if (subPropertyName.IsValidArrayIndex(out _))
-            {
-                return GetArrayItem<double>(propertyName, subPropertyName);
-            }
+            // Get the JSON for the property
+            ReadOnlySpan<byte> propertyJson = GetPropertyValue(propertyName);
             
-            // Handle nested property access
-            return GetValueByPath<double>(propertyName, subPropertyName);
+            // Use JsonPointer to navigate the remaining path
+            return propertyJson.GetDouble(subPath);
         }
 
         // Regular property access
@@ -246,9 +240,7 @@ public readonly struct JsonView
             ReadOnlySpan<byte> json = GetPropertyValue(_path);
             
             // Create JSON pointer format for the property name
-            byte[] jsonPointer = new byte[name.Length + 1];
-            jsonPointer[0] = (byte)'/';
-            name.CopyTo(jsonPointer.AsSpan(1));
+            ReadOnlySpan<byte> jsonPointer = ConstructJsonPointer(name);
             
             // Use JsonPointer to find and extract the double value
             return json.GetDouble(jsonPointer);
@@ -261,41 +253,23 @@ public readonly struct JsonView
         }
     }
     
-    private bool IsArrayIndex(ReadOnlySpan<byte> indexSpan, out int index)
+    /// <summary>
+    /// Constructs a JSON pointer path from a property name, handling both simple names and nested paths
+    /// </summary>
+    private ReadOnlySpan<byte> ConstructJsonPointer(ReadOnlySpan<byte> name)
     {
-        return indexSpan.IsValidArrayIndex(out index);
-    }
-
-
-    
-    // Helper method to navigate nested properties and arrays
-    private T GetValueByPath<T>(ReadOnlySpan<byte> propertyName, ReadOnlySpan<byte> subPath)
-    {
-        // Get the parent object
-        ReadOnlySpan<byte> parentJson = GetPropertyValue(propertyName);
-        
-        // Parse parent as JSON document for easier navigation
-        JsonDocument doc = JsonDocument.Parse(parentJson.ToArray());
-        JsonElement root = doc.RootElement;
-        
-        if (root.ValueKind != JsonValueKind.Object)
-            throw new InvalidOperationException($"Property '{Encoding.UTF8.GetString(propertyName)}' is not an object");
-            
-        // Split the path into segments
-        string path = Encoding.UTF8.GetString(subPath);
-        string[] segments = path.Split('/');
-        
-        // Navigate through the segments
-        JsonElement current = root;
-        
-        // Process all segments
-        foreach (string segment in segments)
+        // If name doesn't start with '/', add it to make it a valid JSON pointer
+        if (name.Length == 0 || name[0] != (byte)'/')
         {
-            current = current.NavigateToSegment(segment);
+            byte[] jsonPointer = new byte[name.Length + 1];
+            jsonPointer[0] = (byte)'/';
+            name.CopyTo(jsonPointer.AsSpan(1));
+            return jsonPointer;
         }
-        
-        // Return the typed value
-        return current.GetTypedValue<T>();
+        else
+        {
+            return name;
+        }
     }
 
     // Internal Get methods that throw exceptions directly
@@ -304,99 +278,6 @@ public readonly struct JsonView
         return _model.Get(name);
     }
     
-    private ReadOnlySpan<byte> GetNestedPropertyValue(ReadOnlySpan<byte> parentName, ReadOnlySpan<byte> propertyPath)
-    {
-        // First check if this is an array access
-        int slashIndex = propertyPath.IndexOf((byte)'/');
-        ReadOnlySpan<byte> firstSegment = slashIndex > 0 ? propertyPath.Slice(0, slashIndex) : propertyPath;
-        
-        if (IsArrayIndex(firstSegment, out int index))
-        {
-            // This is an array access, handle differently
-            throw new NotImplementedException("Array access with multi-level paths is not implemented yet");
-        }
-        
-        // Get the parent object JSON
-        ReadOnlySpan<byte> parentJson = GetPropertyValue(parentName);
-        
-        // Parse it and find the property
-        var reader = new Utf8JsonReader(parentJson);
-        if (!reader.Read())
-            throw new InvalidOperationException("Failed to parse JSON");
-            
-        reader.AssertStartObject(parentName);
-        
-        // Implement JSON navigation to find the property
-        throw new NotImplementedException("Multi-level path navigation is not implemented yet");
-    }
-    private T GetArrayItem<T>(ReadOnlySpan<byte> arrayProperty, ReadOnlySpan<byte> indexSpan)
-    {
-        // Parse the index part
-        int slashIndex = indexSpan.IndexOf((byte)'/');
-        ReadOnlySpan<byte> currentIndex;
-        ReadOnlySpan<byte> remainingPath;
-
-        if (slashIndex > 0)
-        {
-            // We have a nested path after the index
-            currentIndex = indexSpan.Slice(0, slashIndex);
-            remainingPath = indexSpan.Slice(slashIndex + 1);
-        }
-        else
-        {
-            // Just a simple array index
-            currentIndex = indexSpan;
-            remainingPath = ReadOnlySpan<byte>.Empty;
-        }
-
-        if (!IsArrayIndex(currentIndex, out int index))
-        {
-            throw new ArgumentException($"Invalid array index: {Encoding.UTF8.GetString(currentIndex)}");
-        }
-
-        // Get current array
-        ReadOnlySpan<byte> currentJson = GetPropertyValue(arrayProperty);
-
-        // Parse existing array as a document for easier navigation
-        JsonDocument doc = JsonDocument.Parse(currentJson.ToArray());
-        JsonElement root = doc.RootElement;
-        
-        if (root.ValueKind != JsonValueKind.Array)
-            throw new InvalidOperationException($"Property '{Encoding.UTF8.GetString(arrayProperty)}' is not an array");
-            
-        // Check if the array has enough elements
-        if (index >= root.GetArrayLength())
-            throw new IndexOutOfRangeException($"Array index {index} is out of range");
-            
-        // Get the array element at the index
-        JsonElement element = root.EnumerateArray().ElementAt(index);
-        
-        // If we have a remaining path, navigate into the object
-        if (!remainingPath.IsEmpty)
-        {
-            if (element.ValueKind != JsonValueKind.Object)
-                throw new InvalidOperationException($"Cannot navigate into array element at index {index} because it's not an object");
-                
-            // Parse the nested path
-            string path = Encoding.UTF8.GetString(remainingPath);
-            string[] segments = path.Split('/');
-            
-            // Navigate through the segments
-            JsonElement current = element;
-            
-            foreach (string segment in segments)
-            {
-                if (!current.TryGetProperty(segment, out current))
-                    throw new KeyNotFoundException($"Property '{segment}' not found in array element at index {index}");
-            }
-            
-            // Return the typed value using extension method
-            return current.GetTypedValue<T>();
-        }
-        
-        // Direct value access using extension method
-        return element.GetTypedValue<T>();
-    }
     // get spillover (or real?) property or array value
     public bool TryGet(string name, out ReadOnlySpan<byte> value)
         => TryGet(Encoding.UTF8.GetBytes(name), out value);

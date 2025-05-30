@@ -5,7 +5,7 @@ using System.Text.Json;
 /// <summary>
 /// Static helper methods for JsonView operations
 /// </summary>
-public static class JsonViewHelpers
+internal static class JsonViewHelpers
 {
     /// <summary>
     /// Checks if the given span represents a valid array index
