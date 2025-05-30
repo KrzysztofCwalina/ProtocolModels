@@ -287,7 +287,7 @@ public readonly struct JsonView
         throw new KeyNotFoundException($"Property '{Encoding.UTF8.GetString(subPropertyName)}' not found in object '{Encoding.UTF8.GetString(propertyName)}'");
     }
     
-    // Helper method to navigate nested properties
+    // Helper method to navigate nested properties and arrays
     private T GetValueByPath<T>(ReadOnlySpan<byte> propertyName, ReadOnlySpan<byte> subPath)
     {
         // Get the parent object
@@ -307,37 +307,55 @@ public readonly struct JsonView
         // Navigate through the segments
         JsonElement current = root;
         
-        // Process all but the last segment
-        for (int i = 0; i < segments.Length - 1; i++)
+        // Process all segments
+        foreach (string segment in segments)
         {
-            if (!current.TryGetProperty(segments[i], out current))
-                throw new KeyNotFoundException($"Property '{segments[i]}' not found in nested object");
-                
-            if (current.ValueKind != JsonValueKind.Object)
-                throw new InvalidOperationException($"Property '{segments[i]}' is not an object");
+            current = NavigateToSegment(current, segment);
         }
         
-        // Process the last segment to get the value
-        string lastSegment = segments[segments.Length - 1];
-        if (!current.TryGetProperty(lastSegment, out JsonElement value))
-            throw new KeyNotFoundException($"Property '{lastSegment}' not found in object");
-            
-        // Return the value based on the requested type
+        // Return the typed value
+        return GetTypedValue<T>(current);
+    }
+    
+    // Helper method to navigate to a specific segment (property or array index)
+    private static JsonElement NavigateToSegment(JsonElement current, string segment)
+    {
+        // Check if this segment is an array index
+        if (int.TryParse(segment, out int index))
+        {
+            // This might be an array index, but we should check the current element type
+            if (current.ValueKind == JsonValueKind.Array)
+            {
+                if (index >= current.GetArrayLength())
+                    throw new IndexOutOfRangeException($"Array index {index} is out of range");
+                return current.EnumerateArray().ElementAt(index);
+            }
+        }
+        
+        // Treat as object property
+        if (!current.TryGetProperty(segment, out JsonElement next))
+            throw new KeyNotFoundException($"Property '{segment}' not found in object");
+        return next;
+    }
+    
+    // Helper method to get typed value from JsonElement
+    private static T GetTypedValue<T>(JsonElement element)
+    {
         if (typeof(T) == typeof(string))
         {
-            return (T)(object)value.GetString();
+            return (T)(object)element.GetString()!;
         }
         else if (typeof(T) == typeof(double))
         {
-            return (T)(object)value.GetDouble();
+            return (T)(object)element.GetDouble();
         }
         else if (typeof(T) == typeof(int))
         {
-            return (T)(object)value.GetInt32();
+            return (T)(object)element.GetInt32();
         }
         else if (typeof(T) == typeof(bool))
         {
-            return (T)(object)value.GetBoolean();
+            return (T)(object)element.GetBoolean();
         }
         else
         {
