@@ -27,6 +27,9 @@ public class Tests
 
         JsonView bar = input.Json["bar"]; // Accessing a JSON-only property returning complex object.
         Assert.That(bar.GetDouble("baz"u8), Is.EqualTo(1));
+        
+        // Add the failing test case mentioned in the issue
+        Assert.That(input.Json.GetDouble("bar/baz"u8), Is.EqualTo(1));
 
         JsonView complex = input.Json["complex"];
         Assert.That(complex.GetDouble("value"u8), Is.EqualTo(100));
