@@ -123,11 +123,17 @@ public static class JsonPointer
             {
                 throw new IndexOutOfRangeException();
             }
+            
+            // We found an array element (could be an object, array, or primitive value)
             if (current == index)
             {
                 return reader;
             }
             current++;
+            
+            // Skip the entire value to move to the next array element
+            // This handles objects, arrays, and primitive values correctly
+            reader.Skip();
         }
         throw new KeyNotFoundException($"{Encoding.UTF8.GetString(jsonPointer)} not found in JSON document");
     }
