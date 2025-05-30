@@ -105,4 +105,36 @@ public class Tests
         input.Json.Set("test/1"u8, 999.0);
         Assert.That(input.Json.GetDouble("test/1"u8), Is.EqualTo(999.0));
     }
+    
+    [Test]
+    public void NestedObjectAccessTests()
+    {
+        InputModel input = new();
+        input.Category = "nested objects";
+
+        // Add a more complex nested structure
+        input += """
+        {
+            "nested": { 
+                "level1": {
+                    "level2": {
+                        "value": 42,
+                        "name": "deep nested"
+                    }
+                },
+                "simple": 100
+            }
+        }
+        """u8;
+
+        // Test nested access with various levels of nesting
+        Assert.That(input.Json.GetDouble("nested/simple"u8), Is.EqualTo(100));
+        Assert.That(input.Json.GetDouble("nested/level1/level2/value"u8), Is.EqualTo(42));
+        Assert.That(input.Json.GetString("nested/level1/level2/name"u8), Is.EqualTo("deep nested"));
+        
+        // Test mixed array and object access
+        input.Json.Set("items"u8, """[{"id": 1, "name": "item1"}, {"id": 2, "name": "item2"}]"""u8);
+        Assert.That(input.Json.GetDouble("items/0/id"u8), Is.EqualTo(1));
+        Assert.That(input.Json.GetString("items/1/name"u8), Is.EqualTo("item2"));
+    }
 }

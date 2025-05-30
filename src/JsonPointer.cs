@@ -21,6 +21,21 @@ public static class JsonPointer
         Debug.Assert(success, "JSON must be valid UTF-8 and parseable as JSON");
         return reader.GetDouble();
     }
+
+    public static double AsDouble(this ReadOnlySpan<byte> json, ReadOnlySpan<byte> path)
+    {
+        // Handle the path as a JSON pointer
+        if (path.Length > 0)
+        {
+            Span<byte> jsonPointer = stackalloc byte[path.Length + 1];
+            jsonPointer[0] = (byte)'/';
+            path.CopyTo(jsonPointer.Slice(1));
+            return json.GetDouble(jsonPointer);
+        }
+        
+        // If no path, just treat it as a direct value
+        return json.AsDouble();
+    }
     public static string? GetString(this BinaryData json, ReadOnlySpan<byte> jsonPointer)
         => json.Find(jsonPointer).GetString();
     public static ReadOnlySpan<byte> ReadUtf8(this BinaryData json, ReadOnlySpan<byte> jsonPointer)
@@ -41,7 +56,7 @@ public static class JsonPointer
     // TODO (pri 1): support null values for all types
     // TODO (pri 1): make sure JSON escaping works
     // TODO (pri 3): make sure JSON Pointer escaping works, e.g. "/a~/b"u8 finds property "a/b"
-    private static Utf8JsonReader Find(this ReadOnlySpan<byte> json, ReadOnlySpan<byte> jsonPointer)
+    public static Utf8JsonReader Find(this ReadOnlySpan<byte> json, ReadOnlySpan<byte> jsonPointer)
     {
         if (json.Length == 0) throw new ArgumentException("JSON document cannot be empty", nameof(json));
 
@@ -123,6 +138,6 @@ public static class JsonPointer
         throw new KeyNotFoundException($"{Encoding.UTF8.GetString(jsonPointer)} not found in JSON document");
     }
 
-    private static Utf8JsonReader Find(this BinaryData json, ReadOnlySpan<byte> jsonPointer)
+    public static Utf8JsonReader Find(this BinaryData json, ReadOnlySpan<byte> jsonPointer)
         => json.ToMemory().Span.Find(jsonPointer);
 }

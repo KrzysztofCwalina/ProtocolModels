@@ -152,51 +152,86 @@ public readonly struct JsonView
 
     public string GetString(ReadOnlySpan<byte> name)
     {
-        // Check if this is an array index operation (contains '/')
-        int slashIndex = name.IndexOf((byte)'/');
-        if (slashIndex > 0)
-        {
-            return GetArrayItem<string>(name.Slice(0, slashIndex), name.Slice(slashIndex + 1));
-        }
-
-        if (_model.TryGet(name, out ReadOnlySpan<byte> value) && value.Length > 0)
-            return value.AsString();
-        throw new KeyNotFoundException($"Property '{Encoding.UTF8.GetString(name)}' not found or has no value.");
+        // Use the same path resolution logic as GetDouble
+        ReadOnlySpan<byte> json = GetValueForPath(name);
+        return json.AsString();
     }
 
     public double GetDouble(ReadOnlySpan<byte> name)
     {
-        // Check if this is an array index operation (contains '/')
-        int slashIndex = name.IndexOf((byte)'/');
-        if (slashIndex > 0)
-        {
-            return GetArrayItem<double>(name.Slice(0, slashIndex), name.Slice(slashIndex + 1));
-        }
-
-        //Span<byte> fullPath = stackalloc byte[_path.Length + name.Length + 1];
-        //_path.AsSpan().CopyTo(fullPath);
-        //fullPath[_path.Length] = (byte)'/';
-        //name.CopyTo(fullPath.Slice(_path.Length + 1));
-        ReadOnlySpan<byte> value;
+        // Use GetValueForPath to handle nested path resolution
+        ReadOnlySpan<byte> json = GetValueForPath(name);
+        return json.AsDouble();
+    }
+    
+    // Helper method to handle nested path navigation
+    private ReadOnlySpan<byte> GetValueForPath(ReadOnlySpan<byte> path)
+    {
+        // If this JsonView already has a path, we need to handle it
         if (_path.Length > 0)
         {
-            if (!_model.TryGet(_path, out value)) throw new KeyNotFoundException();
+            if (!_model.TryGet(_path, out var nestedValue))
+                throw new KeyNotFoundException($"Property '{Encoding.UTF8.GetString(_path)}' not found");
             
-            Span<byte> path = stackalloc byte[name.Length+ 1];
-            path[0] = (byte)'/';
-            name.CopyTo(path.Slice(1));
-            return value.GetDouble(path);
+            // Create a JSON pointer with the path
+            var pathBytes = new byte[path.Length + 1];
+            pathBytes[0] = (byte)'/';
+            path.CopyTo(pathBytes.AsSpan(1));
+            var jsonPointer = pathBytes;
+            
+            var reader = nestedValue.Find(jsonPointer);
+            return reader.ValueSpan;
         }
-        else
+        
+        // If no slashes, it's a direct property access
+        int slashIndex = path.IndexOf((byte)'/');
+        if (slashIndex < 0)
         {
-            if (!_model.TryGet(name, out value)) throw new KeyNotFoundException();
-            return value.AsDouble();
+            if (!_model.TryGet(path, out var value))
+                throw new KeyNotFoundException($"Property '{Encoding.UTF8.GetString(path)}' not found");
+            return value;
         }
+        
+        // We have a path with at least one slash
+        var firstSegmentBytes = new byte[slashIndex];
+        path.Slice(0, slashIndex).CopyTo(firstSegmentBytes);
+        var firstSegment = firstSegmentBytes.AsSpan();
+        
+        var remainingPathBytes = new byte[path.Length - slashIndex - 1];
+        path.Slice(slashIndex + 1).CopyTo(remainingPathBytes);
+        var remainingPath = remainingPathBytes.AsSpan();
+        
+        // Get the value for the first segment
+        if (_model.TryGet(firstSegment, out var segmentValue))
+        {
+            // Convert the remaining path to a JSON pointer (starts with /)
+            var jsonPointerBytes = new byte[remainingPath.Length + 1];
+            jsonPointerBytes[0] = (byte)'/';
+            remainingPath.CopyTo(jsonPointerBytes.AsSpan(1));
+            var jsonPointer = jsonPointerBytes;
+            
+            try
+            {
+                var reader = segmentValue.Find(jsonPointer);
+                return reader.ValueSpan;
+            }
+            catch (Exception ex)
+            {
+                throw new KeyNotFoundException($"Error accessing path '{Encoding.UTF8.GetString(path)}': {ex.Message}", ex);
+            }
+        }
+        
+        throw new KeyNotFoundException($"Property '{Encoding.UTF8.GetString(firstSegment)}' not found");
+    }
+
+    private bool IsArrayIndex(ReadOnlySpan<byte> indexSpan, out int index)
+    {
+        return Utf8Parser.TryParse(indexSpan, out index, out _);
     }
 
     private T GetArrayItem<T>(ReadOnlySpan<byte> arrayProperty, ReadOnlySpan<byte> indexSpan)
     {
-        if (!Utf8Parser.TryParse(indexSpan, out int index, out _))
+        if (!IsArrayIndex(indexSpan, out int index))
         {
             throw new ArgumentException($"Invalid array index: {Encoding.UTF8.GetString(indexSpan)}");
         }
