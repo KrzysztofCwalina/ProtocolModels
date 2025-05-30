@@ -96,53 +96,53 @@ public readonly struct JsonView
             throw new InvalidOperationException($"Array property '{Encoding.UTF8.GetString(arrayProperty)}' does not exist");
         }
 
-        // Parse existing array
+        // Use typed array handling based on property type
+        Type? elementType = propertyType?.IsArray == true ? propertyType.GetElementType() : null;
+        
+        if (elementType == typeof(int))
+        {
+            ModifyIntArray(arrayProperty, currentJson, index, (int)(object)value!);
+        }
+        else if (elementType == typeof(float))  
+        {
+            ModifyFloatArray(arrayProperty, currentJson, index, (float)(object)value!);
+        }
+        else if (elementType == typeof(string))
+        {
+            ModifyStringArray(arrayProperty, currentJson, index, (string)(object)value!);
+        }
+        else
+        {
+            // Default to double for mixed or unknown types
+            ModifyDoubleArray(arrayProperty, currentJson, index, (double)(object)value!);
+        }
+    }
+    
+    private void ModifyIntArray(ReadOnlySpan<byte> arrayProperty, ReadOnlySpan<byte> currentJson, int index, int newValue)
+    {
         var reader = new Utf8JsonReader(currentJson);
         if (!reader.Read() || reader.TokenType != JsonTokenType.StartArray)
         {
             throw new InvalidOperationException($"Property '{Encoding.UTF8.GetString(arrayProperty)}' is not an array");
         }
-
-        // Read all array elements based on property type if available
-        var arrayElements = new List<object>();
-        Type? elementType = propertyType?.IsArray == true ? propertyType.GetElementType() : null;
         
+        var arrayElements = new List<int>();
         while (reader.Read())
         {
             if (reader.TokenType == JsonTokenType.EndArray)
                 break;
-                
-            switch (reader.TokenType)
-            {
-                case JsonTokenType.String:
-                    arrayElements.Add(reader.GetString()!);
-                    break;
-                case JsonTokenType.Number:
-                    // Use proper type based on property type if available
-                    if (elementType == typeof(int))
-                        arrayElements.Add(reader.GetInt32());
-                    else if (elementType == typeof(float))
-                        arrayElements.Add(reader.GetSingle());
-                    else
-                        arrayElements.Add(reader.GetDouble()); // Default to double
-                    break;
-                default:
-                    // For other types, store raw JSON
-                    var doc = JsonDocument.ParseValue(ref reader);
-                    arrayElements.Add(doc.RootElement.GetRawText());
-                    break;
-            }
+            arrayElements.Add(reader.TokenType == JsonTokenType.Number ? reader.GetInt32() : 0);
         }
-
+        
         // Check if index exists in the array
         if (index >= arrayElements.Count)
         {
             throw new IndexOutOfRangeException($"Array index {index} is out of range for array with {arrayElements.Count} elements");
         }
-
+        
         // Set the value at the specified index
-        arrayElements[index] = value;
-
+        arrayElements[index] = newValue;
+        
         // Rebuild the array JSON
         MemoryStream stream = new();
         Utf8JsonWriter writer = new Utf8JsonWriter(stream);
@@ -150,26 +150,133 @@ public readonly struct JsonView
         
         foreach (var element in arrayElements)
         {
-            if (element is string stringValue)
-            {
-                writer.WriteStringValue(stringValue);
-            }
-            else if (element is double doubleValue)
-            {
-                writer.WriteNumberValue(doubleValue);
-            }
-            else if (element is int intValue)
-            {
-                writer.WriteNumberValue(intValue);
-            }
-            else if (element is float floatValue)
-            {
-                writer.WriteNumberValue(floatValue);
-            }
-            else if (element is string rawJson)
-            {
-                writer.WriteRawValue(rawJson);
-            }
+            writer.WriteNumberValue(element);
+        }
+        
+        writer.WriteEndArray();
+        writer.Flush();
+        
+        ReadOnlySpan<byte> arrayJson = stream.GetBuffer().AsSpan(0, (int)stream.Position);
+        _model.Set(arrayProperty, arrayJson);
+    }
+    
+    private void ModifyFloatArray(ReadOnlySpan<byte> arrayProperty, ReadOnlySpan<byte> currentJson, int index, float newValue)
+    {
+        var reader = new Utf8JsonReader(currentJson);
+        if (!reader.Read() || reader.TokenType != JsonTokenType.StartArray)
+        {
+            throw new InvalidOperationException($"Property '{Encoding.UTF8.GetString(arrayProperty)}' is not an array");
+        }
+        
+        var arrayElements = new List<float>();
+        while (reader.Read())
+        {
+            if (reader.TokenType == JsonTokenType.EndArray)
+                break;
+            arrayElements.Add(reader.TokenType == JsonTokenType.Number ? reader.GetSingle() : 0f);
+        }
+        
+        // Check if index exists in the array
+        if (index >= arrayElements.Count)
+        {
+            throw new IndexOutOfRangeException($"Array index {index} is out of range for array with {arrayElements.Count} elements");
+        }
+        
+        // Set the value at the specified index
+        arrayElements[index] = newValue;
+        
+        // Rebuild the array JSON
+        MemoryStream stream = new();
+        Utf8JsonWriter writer = new Utf8JsonWriter(stream);
+        writer.WriteStartArray();
+        
+        foreach (var element in arrayElements)
+        {
+            writer.WriteNumberValue(element);
+        }
+        
+        writer.WriteEndArray();
+        writer.Flush();
+        
+        ReadOnlySpan<byte> arrayJson = stream.GetBuffer().AsSpan(0, (int)stream.Position);
+        _model.Set(arrayProperty, arrayJson);
+    }
+    
+    private void ModifyStringArray(ReadOnlySpan<byte> arrayProperty, ReadOnlySpan<byte> currentJson, int index, string newValue)
+    {
+        var reader = new Utf8JsonReader(currentJson);
+        if (!reader.Read() || reader.TokenType != JsonTokenType.StartArray)
+        {
+            throw new InvalidOperationException($"Property '{Encoding.UTF8.GetString(arrayProperty)}' is not an array");
+        }
+        
+        var arrayElements = new List<string>();
+        while (reader.Read())
+        {
+            if (reader.TokenType == JsonTokenType.EndArray)
+                break;
+            arrayElements.Add(reader.TokenType == JsonTokenType.String ? reader.GetString()! : string.Empty);
+        }
+        
+        // Check if index exists in the array
+        if (index >= arrayElements.Count)
+        {
+            throw new IndexOutOfRangeException($"Array index {index} is out of range for array with {arrayElements.Count} elements");
+        }
+        
+        // Set the value at the specified index
+        arrayElements[index] = newValue;
+        
+        // Rebuild the array JSON
+        MemoryStream stream = new();
+        Utf8JsonWriter writer = new Utf8JsonWriter(stream);
+        writer.WriteStartArray();
+        
+        foreach (var element in arrayElements)
+        {
+            writer.WriteStringValue(element);
+        }
+        
+        writer.WriteEndArray();
+        writer.Flush();
+        
+        ReadOnlySpan<byte> arrayJson = stream.GetBuffer().AsSpan(0, (int)stream.Position);
+        _model.Set(arrayProperty, arrayJson);
+    }
+    
+    private void ModifyDoubleArray(ReadOnlySpan<byte> arrayProperty, ReadOnlySpan<byte> currentJson, int index, double newValue)
+    {
+        var reader = new Utf8JsonReader(currentJson);
+        if (!reader.Read() || reader.TokenType != JsonTokenType.StartArray)
+        {
+            throw new InvalidOperationException($"Property '{Encoding.UTF8.GetString(arrayProperty)}' is not an array");
+        }
+        
+        var arrayElements = new List<double>();
+        while (reader.Read())
+        {
+            if (reader.TokenType == JsonTokenType.EndArray)
+                break;
+            arrayElements.Add(reader.TokenType == JsonTokenType.Number ? reader.GetDouble() : 0.0);
+        }
+        
+        // Check if index exists in the array
+        if (index >= arrayElements.Count)
+        {
+            throw new IndexOutOfRangeException($"Array index {index} is out of range for array with {arrayElements.Count} elements");
+        }
+        
+        // Set the value at the specified index
+        arrayElements[index] = newValue;
+        
+        // Rebuild the array JSON
+        MemoryStream stream = new();
+        Utf8JsonWriter writer = new Utf8JsonWriter(stream);
+        writer.WriteStartArray();
+        
+        foreach (var element in arrayElements)
+        {
+            writer.WriteNumberValue(element);
         }
         
         writer.WriteEndArray();
@@ -424,53 +531,53 @@ public ref struct JsonArrayElement
             throw new InvalidOperationException($"Array property '{Encoding.UTF8.GetString(arrayProperty)}' does not exist");
         }
 
-        // Parse existing array
+        // Use typed array handling based on property type
+        Type? elementType = propertyType?.IsArray == true ? propertyType.GetElementType() : null;
+        
+        if (elementType == typeof(int))
+        {
+            ModifyIntArrayElement(arrayProperty, currentJson, index, (int)(object)value!);
+        }
+        else if (elementType == typeof(float))  
+        {
+            ModifyFloatArrayElement(arrayProperty, currentJson, index, (float)(object)value!);
+        }
+        else if (elementType == typeof(string))
+        {
+            ModifyStringArrayElement(arrayProperty, currentJson, index, (string)(object)value!);
+        }
+        else
+        {
+            // Default to double for mixed or unknown types
+            ModifyDoubleArrayElement(arrayProperty, currentJson, index, (double)(object)value!);
+        }
+    }
+    
+    private void ModifyIntArrayElement(ReadOnlySpan<byte> arrayProperty, ReadOnlySpan<byte> currentJson, int index, int newValue)
+    {
         var reader = new Utf8JsonReader(currentJson);
         if (!reader.Read() || reader.TokenType != JsonTokenType.StartArray)
         {
             throw new InvalidOperationException($"Property '{Encoding.UTF8.GetString(arrayProperty)}' is not an array");
         }
-
-        // Read all array elements based on property type if available
-        var arrayElements = new List<object>();
-        Type? elementType = propertyType?.IsArray == true ? propertyType.GetElementType() : null;
         
+        var arrayElements = new List<int>();
         while (reader.Read())
         {
             if (reader.TokenType == JsonTokenType.EndArray)
                 break;
-                
-            switch (reader.TokenType)
-            {
-                case JsonTokenType.String:
-                    arrayElements.Add(reader.GetString()!);
-                    break;
-                case JsonTokenType.Number:
-                    // Use proper type based on property type if available
-                    if (elementType == typeof(int))
-                        arrayElements.Add(reader.GetInt32());
-                    else if (elementType == typeof(float))
-                        arrayElements.Add(reader.GetSingle());
-                    else
-                        arrayElements.Add(reader.GetDouble()); // Default to double
-                    break;
-                default:
-                    // For other types, store raw JSON
-                    var doc = JsonDocument.ParseValue(ref reader);
-                    arrayElements.Add(doc.RootElement.GetRawText());
-                    break;
-            }
+            arrayElements.Add(reader.TokenType == JsonTokenType.Number ? reader.GetInt32() : 0);
         }
-
+        
         // Check if index exists in the array
         if (index >= arrayElements.Count)
         {
             throw new IndexOutOfRangeException($"Array index {index} is out of range for array with {arrayElements.Count} elements");
         }
-
+        
         // Set the value at the specified index
-        arrayElements[index] = value;
-
+        arrayElements[index] = newValue;
+        
         // Rebuild the array JSON
         MemoryStream stream = new();
         Utf8JsonWriter writer = new Utf8JsonWriter(stream);
@@ -478,26 +585,133 @@ public ref struct JsonArrayElement
         
         foreach (var element in arrayElements)
         {
-            if (element is string stringValue)
-            {
-                writer.WriteStringValue(stringValue);
-            }
-            else if (element is double doubleValue)
-            {
-                writer.WriteNumberValue(doubleValue);
-            }
-            else if (element is int intValue)
-            {
-                writer.WriteNumberValue(intValue);
-            }
-            else if (element is float floatValue)
-            {
-                writer.WriteNumberValue(floatValue);
-            }
-            else if (element is string rawJson)
-            {
-                writer.WriteRawValue(rawJson);
-            }
+            writer.WriteNumberValue(element);
+        }
+        
+        writer.WriteEndArray();
+        writer.Flush();
+        
+        ReadOnlySpan<byte> arrayJson = stream.GetBuffer().AsSpan(0, (int)stream.Position);
+        _model.Set(arrayProperty, arrayJson);
+    }
+    
+    private void ModifyFloatArrayElement(ReadOnlySpan<byte> arrayProperty, ReadOnlySpan<byte> currentJson, int index, float newValue)
+    {
+        var reader = new Utf8JsonReader(currentJson);
+        if (!reader.Read() || reader.TokenType != JsonTokenType.StartArray)
+        {
+            throw new InvalidOperationException($"Property '{Encoding.UTF8.GetString(arrayProperty)}' is not an array");
+        }
+        
+        var arrayElements = new List<float>();
+        while (reader.Read())
+        {
+            if (reader.TokenType == JsonTokenType.EndArray)
+                break;
+            arrayElements.Add(reader.TokenType == JsonTokenType.Number ? reader.GetSingle() : 0f);
+        }
+        
+        // Check if index exists in the array
+        if (index >= arrayElements.Count)
+        {
+            throw new IndexOutOfRangeException($"Array index {index} is out of range for array with {arrayElements.Count} elements");
+        }
+        
+        // Set the value at the specified index
+        arrayElements[index] = newValue;
+        
+        // Rebuild the array JSON
+        MemoryStream stream = new();
+        Utf8JsonWriter writer = new Utf8JsonWriter(stream);
+        writer.WriteStartArray();
+        
+        foreach (var element in arrayElements)
+        {
+            writer.WriteNumberValue(element);
+        }
+        
+        writer.WriteEndArray();
+        writer.Flush();
+        
+        ReadOnlySpan<byte> arrayJson = stream.GetBuffer().AsSpan(0, (int)stream.Position);
+        _model.Set(arrayProperty, arrayJson);
+    }
+    
+    private void ModifyStringArrayElement(ReadOnlySpan<byte> arrayProperty, ReadOnlySpan<byte> currentJson, int index, string newValue)
+    {
+        var reader = new Utf8JsonReader(currentJson);
+        if (!reader.Read() || reader.TokenType != JsonTokenType.StartArray)
+        {
+            throw new InvalidOperationException($"Property '{Encoding.UTF8.GetString(arrayProperty)}' is not an array");
+        }
+        
+        var arrayElements = new List<string>();
+        while (reader.Read())
+        {
+            if (reader.TokenType == JsonTokenType.EndArray)
+                break;
+            arrayElements.Add(reader.TokenType == JsonTokenType.String ? reader.GetString()! : string.Empty);
+        }
+        
+        // Check if index exists in the array
+        if (index >= arrayElements.Count)
+        {
+            throw new IndexOutOfRangeException($"Array index {index} is out of range for array with {arrayElements.Count} elements");
+        }
+        
+        // Set the value at the specified index
+        arrayElements[index] = newValue;
+        
+        // Rebuild the array JSON
+        MemoryStream stream = new();
+        Utf8JsonWriter writer = new Utf8JsonWriter(stream);
+        writer.WriteStartArray();
+        
+        foreach (var element in arrayElements)
+        {
+            writer.WriteStringValue(element);
+        }
+        
+        writer.WriteEndArray();
+        writer.Flush();
+        
+        ReadOnlySpan<byte> arrayJson = stream.GetBuffer().AsSpan(0, (int)stream.Position);
+        _model.Set(arrayProperty, arrayJson);
+    }
+    
+    private void ModifyDoubleArrayElement(ReadOnlySpan<byte> arrayProperty, ReadOnlySpan<byte> currentJson, int index, double newValue)
+    {
+        var reader = new Utf8JsonReader(currentJson);
+        if (!reader.Read() || reader.TokenType != JsonTokenType.StartArray)
+        {
+            throw new InvalidOperationException($"Property '{Encoding.UTF8.GetString(arrayProperty)}' is not an array");
+        }
+        
+        var arrayElements = new List<double>();
+        while (reader.Read())
+        {
+            if (reader.TokenType == JsonTokenType.EndArray)
+                break;
+            arrayElements.Add(reader.TokenType == JsonTokenType.Number ? reader.GetDouble() : 0.0);
+        }
+        
+        // Check if index exists in the array
+        if (index >= arrayElements.Count)
+        {
+            throw new IndexOutOfRangeException($"Array index {index} is out of range for array with {arrayElements.Count} elements");
+        }
+        
+        // Set the value at the specified index
+        arrayElements[index] = newValue;
+        
+        // Rebuild the array JSON
+        MemoryStream stream = new();
+        Utf8JsonWriter writer = new Utf8JsonWriter(stream);
+        writer.WriteStartArray();
+        
+        foreach (var element in arrayElements)
+        {
+            writer.WriteNumberValue(element);
         }
         
         writer.WriteEndArray();
