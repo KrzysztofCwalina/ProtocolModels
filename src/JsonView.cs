@@ -91,10 +91,7 @@ public readonly struct JsonView
         Type? propertyType = _model.GetPropertyType(arrayProperty);
         
         // Get current array - must exist
-        if (!_model.TryGet(arrayProperty, out ReadOnlySpan<byte> currentJson))
-        {
-            throw new InvalidOperationException($"Array property '{Encoding.UTF8.GetString(arrayProperty)}' does not exist");
-        }
+        ReadOnlySpan<byte> currentJson = _model.Get(arrayProperty);
 
         // Use typed array handling based on property type
         Type? elementType = propertyType?.IsArray == true ? propertyType.GetElementType() : null;
@@ -145,116 +142,157 @@ public readonly struct JsonView
         }
     }
 
+    // Gets the first segment of a path (before the first slash)
+    private ReadOnlySpan<byte> GetFirstSegment(ReadOnlySpan<byte> name)
+    {
+        // Check if this is a nested path (contains '/')
+        int slashIndex = name.IndexOf((byte)'/');
+        if (slashIndex <= 0)
+            return name;  // No more nesting
+        
+        // Return just the first segment
+        return name.Slice(0, slashIndex);
+    }
+    
     public JsonView this[string name]
     {
-        get => new JsonView(_model, Encoding.UTF8.GetBytes(name));
+        get
+        {
+            // Create path by combining current path with new name
+            byte[] namePath = Encoding.UTF8.GetBytes(name);
+            byte[] fullPath;
+            
+            if (_path.Length > 0)
+            {
+                // We're already nested, append to the existing path
+                fullPath = new byte[_path.Length + 1 + namePath.Length];
+                _path.CopyTo(fullPath, 0);
+                fullPath[_path.Length] = (byte)'/';
+                namePath.CopyTo(fullPath, _path.Length + 1);
+            }
+            else
+            {
+                fullPath = namePath;
+            }
+            
+            return new JsonView(_model, fullPath);
+        }
     }
 
     public string GetString(ReadOnlySpan<byte> name)
     {
-        // Check if this is an array index operation (contains '/')
+        // Handle nested paths using span operations
         int slashIndex = name.IndexOf((byte)'/');
         if (slashIndex > 0)
         {
-            return GetArrayItem<string>(name.Slice(0, slashIndex), name.Slice(slashIndex + 1));
+            // Split into property name and sub-path
+            ReadOnlySpan<byte> propertyName = name.Slice(0, slashIndex);
+            ReadOnlySpan<byte> subPath = name.Slice(slashIndex); // Keep the leading slash for JsonPointer
+            
+            // Get the JSON for the property
+            ReadOnlySpan<byte> propertyJson = GetPropertyValue(propertyName);
+            
+            // Use JsonPointer to navigate the remaining path
+            return propertyJson.GetString(subPath);
         }
 
-        if (_model.TryGet(name, out ReadOnlySpan<byte> value) && value.Length > 0)
-            return value.AsString();
-        throw new KeyNotFoundException($"Property '{Encoding.UTF8.GetString(name)}' not found or has no value.");
+        // Regular property access
+        if (_path.Length > 0)
+        {
+            // We're already in a nested object, get the JSON for that path
+            ReadOnlySpan<byte> json = GetPropertyValue(_path);
+            
+            // Create JSON pointer format for the property name
+            ReadOnlySpan<byte> jsonPointer = ConstructJsonPointer(name);
+            
+            // Use JsonPointer to find and extract the string value
+            return json.GetString(jsonPointer);
+        }
+        else
+        {
+            // Direct property access on the model
+            ReadOnlySpan<byte> valueData = GetPropertyValue(name);
+            return valueData.AsString();
+        }
     }
 
     public double GetDouble(ReadOnlySpan<byte> name)
     {
-        // Check if this is an array index operation (contains '/')
+        // Handle nested paths using span operations
         int slashIndex = name.IndexOf((byte)'/');
         if (slashIndex > 0)
         {
-            return GetArrayItem<double>(name.Slice(0, slashIndex), name.Slice(slashIndex + 1));
+            // Split into property name and sub-path
+            ReadOnlySpan<byte> propertyName = name.Slice(0, slashIndex);
+            ReadOnlySpan<byte> subPath = name.Slice(slashIndex); // Keep the leading slash for JsonPointer
+            
+            // Get the JSON for the property
+            ReadOnlySpan<byte> propertyJson = GetPropertyValue(propertyName);
+            
+            // Use JsonPointer to navigate the remaining path
+            return propertyJson.GetDouble(subPath);
         }
 
-        //Span<byte> fullPath = stackalloc byte[_path.Length + name.Length + 1];
-        //_path.AsSpan().CopyTo(fullPath);
-        //fullPath[_path.Length] = (byte)'/';
-        //name.CopyTo(fullPath.Slice(_path.Length + 1));
-        ReadOnlySpan<byte> value;
+        // Regular property access
         if (_path.Length > 0)
         {
-            if (!_model.TryGet(_path, out value)) throw new KeyNotFoundException();
+            // We're already in a nested object, get the JSON for that path
+            ReadOnlySpan<byte> json = GetPropertyValue(_path);
             
-            Span<byte> path = stackalloc byte[name.Length+ 1];
-            path[0] = (byte)'/';
-            name.CopyTo(path.Slice(1));
-            return value.GetDouble(path);
+            // Create JSON pointer format for the property name
+            ReadOnlySpan<byte> jsonPointer = ConstructJsonPointer(name);
+            
+            // Use JsonPointer to find and extract the double value
+            return json.GetDouble(jsonPointer);
         }
         else
         {
-            if (!_model.TryGet(name, out value)) throw new KeyNotFoundException();
-            return value.AsDouble();
+            // Direct property access on the model
+            ReadOnlySpan<byte> valueData = GetPropertyValue(name);
+            return valueData.AsDouble();
         }
     }
-
-    private T GetArrayItem<T>(ReadOnlySpan<byte> arrayProperty, ReadOnlySpan<byte> indexSpan)
+    
+    /// <summary>
+    /// Constructs a JSON pointer path from a property name, handling both simple names and nested paths
+    /// </summary>
+    private ReadOnlySpan<byte> ConstructJsonPointer(ReadOnlySpan<byte> name)
     {
-        if (!Utf8Parser.TryParse(indexSpan, out int index, out _))
+        // If name doesn't start with '/', add it to make it a valid JSON pointer
+        if (name.Length == 0 || name[0] != (byte)'/')
         {
-            throw new ArgumentException($"Invalid array index: {Encoding.UTF8.GetString(indexSpan)}");
+            byte[] jsonPointer = new byte[name.Length + 1];
+            jsonPointer[0] = (byte)'/';
+            name.CopyTo(jsonPointer.AsSpan(1));
+            return jsonPointer;
         }
-
-        // Get current array
-        if (!_model.TryGet(arrayProperty, out ReadOnlySpan<byte> currentJson))
+        else
         {
-            throw new KeyNotFoundException($"Property '{Encoding.UTF8.GetString(arrayProperty)}' not found");
+            return name;
         }
-
-        // Parse existing array
-        var reader = new Utf8JsonReader(currentJson);
-        if (!reader.Read() || reader.TokenType != JsonTokenType.StartArray)
-        {
-            throw new InvalidOperationException($"Property '{Encoding.UTF8.GetString(arrayProperty)}' is not an array");
-        }
-
-        int currentIndex = 0;
-        while (reader.Read())
-        {
-            if (reader.TokenType == JsonTokenType.EndArray)
-            {
-                throw new IndexOutOfRangeException($"Array index {index} is out of range");
-            }
-            
-            if (currentIndex == index)
-            {
-                if (typeof(T) == typeof(string))
-                {
-                    return (T)(object)reader.GetString()!;
-                }
-                else if (typeof(T) == typeof(double))
-                {
-                    return (T)(object)reader.GetDouble();
-                }
-                else if (typeof(T) == typeof(int))
-                {
-                    return (T)(object)reader.GetInt32();
-                }
-                else
-                {
-                    throw new NotSupportedException($"Type {typeof(T)} is not supported for array item access");
-                }
-            }
-            currentIndex++;
-        }
-        
-        throw new IndexOutOfRangeException($"Array index {index} is out of range");
     }
+
+    // Internal Get methods that throw exceptions directly
+    private ReadOnlySpan<byte> GetPropertyValue(ReadOnlySpan<byte> name)
+    {
+        return _model.Get(name);
+    }
+    
     // get spillover (or real?) property or array value
     public bool TryGet(string name, out ReadOnlySpan<byte> value)
         => TryGet(Encoding.UTF8.GetBytes(name), out value);
     public bool TryGet(ReadOnlySpan<byte> name, out ReadOnlySpan<byte> value) 
         => _model.TryGet(name, out value);
 
+    public ReadOnlySpan<byte> Get(string name)
+        => Get(Encoding.UTF8.GetBytes(name));
+    public ReadOnlySpan<byte> Get(ReadOnlySpan<byte> name) 
+        => _model.Get(name);
+
     public T[] GetArray<T>(ReadOnlySpan<byte> name)
     {
-        if (!_model.TryGet(name, out ReadOnlySpan<byte> value) || value.Length == 0)
+        ReadOnlySpan<byte> value = _model.Get(name);
+        if (value.Length == 0)
             throw new KeyNotFoundException($"Property '{Encoding.UTF8.GetString(name)}' not found or has no value.");
         
         // Use System.Text.Json to parse the array
