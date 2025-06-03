@@ -145,6 +145,11 @@ public class InputModelJson : IJsonModel<InputModelJson>
         // Initialize with empty JSON object
         _json = "{}"u8.ToArray();
     }
+    
+    public InputModelJson(ReadOnlyMemory<byte> json)
+    {
+        _json = json;
+    }
 
     // Simple Json property for accessing the JSON data directly
     public InputModelJsonHelper Json => new InputModelJsonHelper(_json);
@@ -268,8 +273,7 @@ public class InputModelJson : IJsonModel<InputModelJson>
 
     InputModelJson IPersistableModel<InputModelJson>.Create(BinaryData data, ModelReaderWriterOptions options)
     {
-        Utf8JsonReader reader = new Utf8JsonReader(data.ToMemory().Span);
-        return ((IJsonModel<InputModelJson>)this).Create(ref reader, options);
+        return new InputModelJson(data.ToMemory());
     }
 
     string IPersistableModel<InputModelJson>.GetFormatFromOptions(ModelReaderWriterOptions options) => "J";
