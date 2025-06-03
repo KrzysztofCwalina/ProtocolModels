@@ -246,10 +246,13 @@ public struct JsonProperties
 
     internal void Write(Utf8JsonWriter writer, ModelReaderWriterOptions options)
     {
-        foreach (var kvp in _properties)
+        if (_properties != null)
         {
-            writer.WritePropertyName(kvp.Key);
-            writer.WriteRawValue(kvp.Value.Span, true); // true to escape the value
+            foreach (var kvp in _properties)
+            {
+                writer.WritePropertyName(kvp.Key);
+                writer.WriteRawValue(kvp.Value.Span, true); // true to escape the value
+            }
         }
     }
 
