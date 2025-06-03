@@ -173,30 +173,7 @@ public class InputModelJson : JsonModel<InputModelJson>
             if (_json.Length <= 2) return Array.Empty<string>(); // Empty JSON object
             try
             {
-                // Use JsonDocument to parse the array
-                var reader = new Utf8JsonReader(_json.Span);
-                reader.Read(); // Read start object
-                while (reader.Read())
-                {
-                    if (reader.TokenType == JsonTokenType.PropertyName && reader.ValueTextEquals("names"u8))
-                    {
-                        reader.Read(); // Read start array
-                        if (reader.TokenType == JsonTokenType.StartArray)
-                        {
-                            var names = new List<string>();
-                            while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
-                            {
-                                if (reader.TokenType == JsonTokenType.String)
-                                {
-                                    names.Add(reader.GetString() ?? string.Empty);
-                                }
-                            }
-                            return names.ToArray();
-                        }
-                        break;
-                    }
-                }
-                return Array.Empty<string>();
+                return _json.Span.GetStringArray("/names"u8);
             }
             catch
             {
@@ -225,30 +202,7 @@ public class InputModelJson : JsonModel<InputModelJson>
             if (_json.Length <= 2) return Array.Empty<double>(); // Empty JSON object
             try
             {
-                // Use JsonDocument to parse the array
-                var reader = new Utf8JsonReader(_json.Span);
-                reader.Read(); // Read start object
-                while (reader.Read())
-                {
-                    if (reader.TokenType == JsonTokenType.PropertyName && reader.ValueTextEquals("numbers"u8))
-                    {
-                        reader.Read(); // Read start array
-                        if (reader.TokenType == JsonTokenType.StartArray)
-                        {
-                            var numbers = new List<double>();
-                            while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
-                            {
-                                if (reader.TokenType == JsonTokenType.Number)
-                                {
-                                    numbers.Add(reader.GetDouble());
-                                }
-                            }
-                            return numbers.ToArray();
-                        }
-                        break;
-                    }
-                }
-                return Array.Empty<double>();
+                return _json.Span.GetDoubleArray("/numbers"u8);
             }
             catch
             {
@@ -327,26 +281,21 @@ public class InputModelJson : JsonModel<InputModelJson>
         try
         {
             string propertyName = Encoding.UTF8.GetString(name);
-            var reader = new Utf8JsonReader(_json.Span);
-            reader.Read(); // Read start object
-            while (reader.Read())
+            ReadOnlySpan<byte> jsonPointer = Encoding.UTF8.GetBytes($"/{propertyName}");
+            
+            if (_json.Span.TryGetElement(jsonPointer, out JsonElement element))
             {
-                if (reader.TokenType == JsonTokenType.PropertyName && reader.ValueTextEquals(propertyName))
+                // Convert JSON value to object based on type
+                value = element.ValueKind switch
                 {
-                    reader.Read(); // Read the value
-                    
-                    // Convert JSON value to object based on type
-                    value = reader.TokenType switch
-                    {
-                        JsonTokenType.String => reader.GetString()!,
-                        JsonTokenType.Number => reader.GetDouble(),
-                        JsonTokenType.True => true,
-                        JsonTokenType.False => false,
-                        JsonTokenType.Null => null!,
-                        _ => null! // For complex objects, we'll return null for now
-                    };
-                    return value != null;
-                }
+                    JsonValueKind.String => element.GetString()!,
+                    JsonValueKind.Number => element.GetDouble(),
+                    JsonValueKind.True => true,
+                    JsonValueKind.False => false,
+                    JsonValueKind.Null => null!,
+                    _ => null! // For complex objects, we'll return null for now
+                };
+                return value != null;
             }
         }
         catch

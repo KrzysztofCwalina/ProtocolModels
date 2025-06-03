@@ -45,6 +45,60 @@ public static class JsonPointer
     public static bool GetBoolean(this ReadOnlySpan<byte> json, ReadOnlySpan<byte> jsonPointer)
         => json.Find(jsonPointer).GetBoolean();
 
+    public static string[] GetStringArray(this ReadOnlySpan<byte> json, ReadOnlySpan<byte> jsonPointer)
+    {
+        var reader = json.Find(jsonPointer);
+        if (reader.TokenType != JsonTokenType.StartArray)
+            return Array.Empty<string>();
+        
+        var strings = new List<string>();
+        while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
+        {
+            if (reader.TokenType == JsonTokenType.String)
+            {
+                strings.Add(reader.GetString() ?? string.Empty);
+            }
+        }
+        return strings.ToArray();
+    }
+
+    public static double[] GetDoubleArray(this ReadOnlySpan<byte> json, ReadOnlySpan<byte> jsonPointer)
+    {
+        var reader = json.Find(jsonPointer);
+        if (reader.TokenType != JsonTokenType.StartArray)
+            return Array.Empty<double>();
+        
+        var doubles = new List<double>();
+        while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
+        {
+            if (reader.TokenType == JsonTokenType.Number)
+            {
+                doubles.Add(reader.GetDouble());
+            }
+        }
+        return doubles.ToArray();
+    }
+
+    public static JsonElement GetElement(this ReadOnlySpan<byte> json, ReadOnlySpan<byte> jsonPointer)
+    {
+        var reader = json.Find(jsonPointer);
+        return JsonDocument.ParseValue(ref reader).RootElement;
+    }
+
+    public static bool TryGetElement(this ReadOnlySpan<byte> json, ReadOnlySpan<byte> jsonPointer, out JsonElement element)
+    {
+        try
+        {
+            element = json.GetElement(jsonPointer);
+            return true;
+        }
+        catch
+        {
+            element = default;
+            return false;
+        }
+    }
+
     // TODO (pri 0): implement arrays, e.g. "/addresses/0/street"u8
     // TODO (pri 1): implement object graphs, e.g "/address/street"u8
     // TODO (pri 1): support null values for all types
