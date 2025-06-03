@@ -276,19 +276,8 @@ public class InputModelJson : IJsonModel<InputModelJson>
 
     void IJsonModel<InputModelJson>.Write(Utf8JsonWriter writer, ModelReaderWriterOptions options)
     {
-        // Parse the existing JSON and write it out
-        JsonDocument doc = JsonDocument.Parse(_json);
-        
-        writer.WriteStartObject();
-        
-        // Write all properties from our JSON storage
-        foreach (var property in doc.RootElement.EnumerateObject())
-        {
-            writer.WritePropertyName(property.Name);
-            property.Value.WriteTo(writer);
-        }
-        
-        writer.WriteEndObject();
+        // Write the raw JSON directly without parsing
+        writer.WriteRawValue(_json.Span);
     }
 
     BinaryData IPersistableModel<InputModelJson>.Write(ModelReaderWriterOptions options)
