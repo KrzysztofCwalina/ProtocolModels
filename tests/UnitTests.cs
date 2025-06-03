@@ -107,6 +107,112 @@ public class Tests
     }
     
     [Test]
+    public void InputModelOriginalTest()
+    {
+        InputModel input = new();
+        input.Category = "number facts";
+        input.Numbers = [42, 3.14];
+        input.Names = ["my first building", "PI"];
+
+        // Adds JSON-only properties to the input model
+        input += """
+        {
+            "foo": 0.95,
+            "bar": { 
+                "baz" : 1 
+            }
+        }
+        """u8;
+
+        JsonView bar = input.Json["bar"]; // Accessing a JSON-only property returning complex object.
+        Assert.That(bar.GetDouble("baz"u8), Is.EqualTo(1));
+        
+        // Add the failing test case mentioned in the issue
+        Assert.That(input.Json.GetDouble("bar/baz"u8), Is.EqualTo(1));
+    }
+    
+    [Test]
+    public void InputModelJsonAdditionOperatorTest()
+    {
+        var model = new InputModelJson();
+        model.Category = "test";
+        
+        model += """{"foo": 42}"""u8;
+        
+        // Debug: Print the JSON to see what it contains
+        BinaryData json = ModelReaderWriter.Write(model);
+        Console.WriteLine($"JSON after addition: {json}");
+        
+        // Try to access foo property
+        try
+        {
+            double fooValue = model.Json.GetDouble("foo"u8);
+            Assert.That(fooValue, Is.EqualTo(42));
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error accessing foo: {ex}");
+            throw;
+        }
+    }
+    
+    [Test]
+    public void InputModelJsonComprehensiveTest()
+    {
+        var model = new InputModelJson();
+        model.Category = "number facts";
+        model.Numbers = new[] { 42.0, 3.14 };
+        model.Names = new[] { "my first building", "PI" };
+
+        // Test adding JSON-only properties through addition operator
+        model += """
+        {
+            "foo": 0.95,
+            "bar": { 
+                "baz" : 1 
+            }
+        }
+        """u8;
+
+        // Debug: Print the JSON to see what it contains
+        BinaryData json = ModelReaderWriter.Write(model);
+        Console.WriteLine($"JSON after addition: {json}");
+
+        // Test JsonView access for complex objects
+        try
+        {
+            JsonView bar = model.Json["bar"];
+            Assert.That(bar.GetDouble("baz"u8), Is.EqualTo(1));
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error accessing bar: {ex}");
+            throw;
+        }
+        
+        // Test nested path access
+        Assert.That(model.Json.GetDouble("bar/baz"u8), Is.EqualTo(1));
+
+        // Verify basic properties
+        Assert.That(model.Category, Is.EqualTo("number facts"));
+        Assert.That(model.Numbers, Is.EqualTo(new[] { 42.0, 3.14 }));
+        Assert.That(model.Names, Is.EqualTo(new[] { "my first building", "PI" }));
+
+        // Test serialization
+        Assert.That(json.GetString("/category"u8), Is.EqualTo(model.Category));
+        Assert.That(json.GetDouble("/numbers/0"u8), Is.EqualTo(model.Numbers[0]));
+        Assert.That(json.GetDouble("/numbers/1"u8), Is.EqualTo(model.Numbers[1]));
+        Assert.That(json.GetString("/names/0"u8), Is.EqualTo(model.Names[0]));
+        Assert.That(json.GetString("/names/1"u8), Is.EqualTo(model.Names[1]));
+        
+        // Test deserialization
+        var deserializedModel = ModelReaderWriter.Read<InputModelJson>(json);
+        Assert.That(deserializedModel.Category, Is.EqualTo("number facts"));
+        Assert.That(deserializedModel.Numbers, Is.EqualTo(new[] { 42.0, 3.14 }));
+        Assert.That(deserializedModel.Names, Is.EqualTo(new[] { "my first building", "PI" }));
+    }
+    
+    [Test]
     public void InputModelJsonBasicTest()
     {
         var model = new InputModelJson();

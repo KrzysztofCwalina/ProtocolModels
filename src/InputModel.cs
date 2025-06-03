@@ -322,6 +322,38 @@ public class InputModelJson : JsonModel<InputModelJson>
             value = Numbers;
             return true;
         }
+        
+        // Try to get from JSON for additional properties
+        try
+        {
+            string propertyName = Encoding.UTF8.GetString(name);
+            var reader = new Utf8JsonReader(_json.Span);
+            reader.Read(); // Read start object
+            while (reader.Read())
+            {
+                if (reader.TokenType == JsonTokenType.PropertyName && reader.ValueTextEquals(propertyName))
+                {
+                    reader.Read(); // Read the value
+                    
+                    // Convert JSON value to object based on type
+                    value = reader.TokenType switch
+                    {
+                        JsonTokenType.String => reader.GetString()!,
+                        JsonTokenType.Number => reader.GetDouble(),
+                        JsonTokenType.True => true,
+                        JsonTokenType.False => false,
+                        JsonTokenType.Null => null!,
+                        _ => null! // For complex objects, we'll return null for now
+                    };
+                    return value != null;
+                }
+            }
+        }
+        catch
+        {
+            // If parsing fails, property doesn't exist
+        }
+        
         value = default!;
         return false;
     }
@@ -356,7 +388,7 @@ public class InputModelJson : JsonModel<InputModelJson>
 
     protected override void WriteCore(Utf8JsonWriter writer, ModelReaderWriterOptions options)
     {
-        // Parse the existing JSON to merge with additional properties
+        // Parse the existing JSON and write it out
         JsonDocument doc = JsonDocument.Parse(_json);
         
         writer.WriteStartObject();
@@ -367,9 +399,6 @@ public class InputModelJson : JsonModel<InputModelJson>
             writer.WritePropertyName(property.Name);
             property.Value.WriteTo(writer);
         }
-        
-        // Write any additional properties from the JsonView
-        Json.Write(writer, options);
         
         writer.WriteEndObject();
     }
@@ -391,20 +420,53 @@ public class InputModelJson : JsonModel<InputModelJson>
 
     public static InputModelJson operator+(InputModelJson model, ReadOnlySpan<byte> json)
     {
-        var sum = ModelReaderWriter.Read<InputModelJson>(BinaryData.FromBytes(json.ToArray()))!;
-        if (sum.TryGetProperty("category"u8, out _))
+        // Parse the new JSON to add
+        JsonDocument newDoc = JsonDocument.Parse(json.ToArray());
+        
+        // Parse the existing JSON
+        JsonDocument existingDoc = JsonDocument.Parse(model._json);
+        
+        // Create merged JSON
+        using var stream = new MemoryStream();
+        using var writer = new Utf8JsonWriter(stream);
+        
+        writer.WriteStartObject();
+        
+        // First write all existing properties
+        foreach (var property in existingDoc.RootElement.EnumerateObject())
         {
-            sum.Category = model.Category;
+            writer.WritePropertyName(property.Name);
+            property.Value.WriteTo(writer);
         }
-        if (sum.TryGetProperty("names"u8, out _))
+        
+        // Then write all new properties (this will overwrite existing ones with same name)
+        foreach (var property in newDoc.RootElement.EnumerateObject())
         {
-            sum.Names = model.Names;
+            // Only add if it doesn't already exist (to avoid duplicates)
+            bool exists = false;
+            foreach (var existingProperty in existingDoc.RootElement.EnumerateObject())
+            {
+                if (existingProperty.Name == property.Name)
+                {
+                    exists = true;
+                    break;
+                }
+            }
+            
+            if (!exists)
+            {
+                writer.WritePropertyName(property.Name);
+                property.Value.WriteTo(writer);
+            }
         }
-        if (sum.TryGetProperty("numbers"u8, out _))
-        {
-            sum.Numbers = model.Numbers;
-        }
-        return sum;
+        
+        writer.WriteEndObject();
+        writer.Flush();
+        
+        // Create new model with merged JSON
+        var result = new InputModelJson();
+        result._json = stream.ToArray();
+        return result;
     }
 }
 
