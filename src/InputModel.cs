@@ -136,7 +136,7 @@ public class InputModel : JsonModel<InputModel>
     }
 }
 
-public class InputModelJson : IJsonModel<InputModelJson>, IJsonModel
+public class InputModelJson : IJsonModel<InputModelJson>
 {
     private ReadOnlyMemory<byte> _json;
 
@@ -146,7 +146,137 @@ public class InputModelJson : IJsonModel<InputModelJson>, IJsonModel
         _json = "{}"u8.ToArray();
     }
 
-    public JsonView Json => new JsonView(this);
+    public JsonView Json => new JsonView(new InputModelJsonAdapter(this));
+
+    // Adapter class to provide IJsonModel functionality without InputModelJson directly implementing it
+    private class InputModelJsonAdapter : IJsonModel
+    {
+        private readonly InputModelJson _model;
+
+        public InputModelJsonAdapter(InputModelJson model)
+        {
+            _model = model;
+        }
+
+        public bool TryGet(ReadOnlySpan<byte> name, out ReadOnlySpan<byte> value)
+        {
+            if (name.SequenceEqual("category"u8))
+            {
+                var stream = new MemoryStream();
+                var writer = new Utf8JsonWriter(stream);
+                writer.WriteStringValue(_model.Category);
+                writer.Flush();
+                value = stream.GetBuffer().AsSpan(0, (int)stream.Position);
+                return true;
+            }
+            if (name.SequenceEqual("names"u8))
+            {
+                var stream = new MemoryStream();
+                var writer = new Utf8JsonWriter(stream);
+                writer.WriteStartArray();
+                foreach (var name2 in _model.Names)
+                {
+                    writer.WriteStringValue(name2);
+                }
+                writer.WriteEndArray();
+                writer.Flush();
+                value = stream.GetBuffer().AsSpan(0, (int)stream.Position);
+                return true;
+            }
+            if (name.SequenceEqual("numbers"u8))
+            {
+                var stream = new MemoryStream();
+                var writer = new Utf8JsonWriter(stream);
+                writer.WriteStartArray();
+                foreach (var number in _model.Numbers)
+                {
+                    writer.WriteNumberValue(number);
+                }
+                writer.WriteEndArray();
+                writer.Flush();
+                value = stream.GetBuffer().AsSpan(0, (int)stream.Position);
+                return true;
+            }
+            
+            // Try to get from JSON for additional properties
+            string propertyName = Encoding.UTF8.GetString(name);
+            ReadOnlySpan<byte> jsonPointer = Encoding.UTF8.GetBytes($"/{propertyName}");
+            
+            if (_model._json.Span.TryGetElement(jsonPointer, out JsonElement element))
+            {
+                var stream = new MemoryStream();
+                var writer = new Utf8JsonWriter(stream);
+                element.WriteTo(writer);
+                writer.Flush();
+                value = stream.GetBuffer().AsSpan(0, (int)stream.Position);
+                return true;
+            }
+            
+            value = default;
+            return false;
+        }
+
+        public void Set(ReadOnlySpan<byte> name, ReadOnlySpan<byte> value)
+        {
+            if (name.SequenceEqual("category"u8))
+            {
+                var reader = new Utf8JsonReader(value);
+                reader.Read();
+                _model.Category = reader.GetString()!;
+                return;
+            }
+            if (name.SequenceEqual("names"u8))
+            {
+                var doc = JsonDocument.Parse(value.ToArray());
+                var list = new List<string>();
+                foreach (var element in doc.RootElement.EnumerateArray())
+                {
+                    list.Add(element.GetString() ?? string.Empty);
+                }
+                _model.Names = list.ToArray();
+                return;
+            }
+            if (name.SequenceEqual("numbers"u8))
+            {
+                var doc = JsonDocument.Parse(value.ToArray());
+                var list = new List<double>();
+                foreach (var element in doc.RootElement.EnumerateArray())
+                {
+                    list.Add(element.GetDouble());
+                }
+                _model.Numbers = list.ToArray();
+                return;
+            }
+            
+            // For additional properties, add them to the JSON
+            string propertyName = Encoding.UTF8.GetString(name);
+            _model.SetPropertyFromJson(propertyName, value);
+        }
+
+        public Type? GetPropertyType(ReadOnlySpan<byte> name)
+        {
+            if (name.SequenceEqual("category"u8)) return typeof(string);
+            if (name.SequenceEqual("names"u8)) return typeof(string[]);
+            if (name.SequenceEqual("numbers"u8)) return typeof(double[]);
+            return null;
+        }
+
+        public void WriteAdditionalProperties(Utf8JsonWriter writer, ModelReaderWriterOptions options)
+        {
+            // Parse the existing JSON and write out all additional properties (non-core properties)
+            JsonDocument doc = JsonDocument.Parse(_model._json);
+            
+            foreach (var property in doc.RootElement.EnumerateObject())
+            {
+                // Skip core properties
+                if (property.Name != "category" && property.Name != "names" && property.Name != "numbers")
+                {
+                    writer.WritePropertyName(property.Name);
+                    property.Value.WriteTo(writer);
+                }
+            }
+        }
+    }
 
     public string Category
     {
@@ -240,103 +370,6 @@ public class InputModelJson : IJsonModel<InputModelJson>, IJsonModel
         _json = stream.ToArray();
     }
 
-    #region IJsonModel implementation
-
-    bool IJsonModel.TryGet(ReadOnlySpan<byte> name, out ReadOnlySpan<byte> value)
-    {
-        if (name.SequenceEqual("category"u8))
-        {
-            var stream = new MemoryStream();
-            var writer = new Utf8JsonWriter(stream);
-            writer.WriteStringValue(Category);
-            writer.Flush();
-            value = stream.GetBuffer().AsSpan(0, (int)stream.Position);
-            return true;
-        }
-        if (name.SequenceEqual("names"u8))
-        {
-            var stream = new MemoryStream();
-            var writer = new Utf8JsonWriter(stream);
-            writer.WriteStartArray();
-            foreach (var name2 in Names)
-            {
-                writer.WriteStringValue(name2);
-            }
-            writer.WriteEndArray();
-            writer.Flush();
-            value = stream.GetBuffer().AsSpan(0, (int)stream.Position);
-            return true;
-        }
-        if (name.SequenceEqual("numbers"u8))
-        {
-            var stream = new MemoryStream();
-            var writer = new Utf8JsonWriter(stream);
-            writer.WriteStartArray();
-            foreach (var number in Numbers)
-            {
-                writer.WriteNumberValue(number);
-            }
-            writer.WriteEndArray();
-            writer.Flush();
-            value = stream.GetBuffer().AsSpan(0, (int)stream.Position);
-            return true;
-        }
-        
-        // Try to get from JSON for additional properties
-        string propertyName = Encoding.UTF8.GetString(name);
-        ReadOnlySpan<byte> jsonPointer = Encoding.UTF8.GetBytes($"/{propertyName}");
-        
-        if (_json.Span.TryGetElement(jsonPointer, out JsonElement element))
-        {
-            var stream = new MemoryStream();
-            var writer = new Utf8JsonWriter(stream);
-            element.WriteTo(writer);
-            writer.Flush();
-            value = stream.GetBuffer().AsSpan(0, (int)stream.Position);
-            return true;
-        }
-        
-        value = default;
-        return false;
-    }
-
-    void IJsonModel.Set(ReadOnlySpan<byte> name, ReadOnlySpan<byte> value)
-    {
-        if (name.SequenceEqual("category"u8))
-        {
-            var reader = new Utf8JsonReader(value);
-            reader.Read();
-            Category = reader.GetString()!;
-            return;
-        }
-        if (name.SequenceEqual("names"u8))
-        {
-            var doc = JsonDocument.Parse(value.ToArray());
-            var list = new List<string>();
-            foreach (var element in doc.RootElement.EnumerateArray())
-            {
-                list.Add(element.GetString() ?? string.Empty);
-            }
-            Names = list.ToArray();
-            return;
-        }
-        if (name.SequenceEqual("numbers"u8))
-        {
-            var doc = JsonDocument.Parse(value.ToArray());
-            var list = new List<double>();
-            foreach (var element in doc.RootElement.EnumerateArray())
-            {
-                list.Add(element.GetDouble());
-            }
-            Numbers = list.ToArray();
-            return;
-        }
-        
-        // For additional properties, add them to the JSON
-        string propertyName = Encoding.UTF8.GetString(name);
-        SetPropertyFromJson(propertyName, value);
-    }
-
     private void SetPropertyFromJson(string propertyName, ReadOnlySpan<byte> value)
     {
         // Parse existing JSON
@@ -369,31 +402,7 @@ public class InputModelJson : IJsonModel<InputModelJson>, IJsonModel
         _json = stream.ToArray();
     }
 
-    Type? IJsonModel.GetPropertyType(ReadOnlySpan<byte> name)
-    {
-        if (name.SequenceEqual("category"u8)) return typeof(string);
-        if (name.SequenceEqual("names"u8)) return typeof(string[]);
-        if (name.SequenceEqual("numbers"u8)) return typeof(double[]);
-        return null;
-    }
 
-    void IJsonModel.WriteAdditionalProperties(Utf8JsonWriter writer, ModelReaderWriterOptions options)
-    {
-        // Parse the existing JSON and write out all additional properties (non-core properties)
-        JsonDocument doc = JsonDocument.Parse(_json);
-        
-        foreach (var property in doc.RootElement.EnumerateObject())
-        {
-            // Skip core properties
-            if (property.Name != "category" && property.Name != "names" && property.Name != "numbers")
-            {
-                writer.WritePropertyName(property.Name);
-                property.Value.WriteTo(writer);
-            }
-        }
-    }
-
-    #endregion
 
     #region IJsonModel<T> and IPersistableModel<T> implementation
 
