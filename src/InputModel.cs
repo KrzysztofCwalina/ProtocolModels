@@ -282,13 +282,7 @@ public class InputModelJson : IJsonModel<InputModelJson>
 
     BinaryData IPersistableModel<InputModelJson>.Write(ModelReaderWriterOptions options)
     {
-        MemoryStream stream = new MemoryStream();
-        Utf8JsonWriter writer = new Utf8JsonWriter(stream);
-        ((IJsonModel<InputModelJson>)this).Write(writer, options);
-        writer.Flush();
-        byte[] buffer = stream.GetBuffer();
-        ReadOnlyMemory<byte> memory = buffer.AsMemory(0, (int)stream.Position);
-        return new BinaryData(memory);
+        return new BinaryData(_json);
     }
 
     #endregion
