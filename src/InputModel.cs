@@ -151,14 +151,7 @@ public class InputModelJson : JsonModel<InputModelJson>
         get
         {
             if (_json.Length <= 2) return string.Empty; // Empty JSON object
-            try
-            {
-                return _json.Span.GetString("/category"u8);
-            }
-            catch
-            {
-                return string.Empty;
-            }
+            return _json.Span.GetString("/category"u8);
         }
         set
         {
@@ -171,14 +164,7 @@ public class InputModelJson : JsonModel<InputModelJson>
         get
         {
             if (_json.Length <= 2) return Array.Empty<string>(); // Empty JSON object
-            try
-            {
-                return _json.Span.GetStringArray("/names"u8);
-            }
-            catch
-            {
-                return Array.Empty<string>();
-            }
+            return _json.Span.GetStringArray("/names"u8);
         }
         set
         {
@@ -200,14 +186,7 @@ public class InputModelJson : JsonModel<InputModelJson>
         get
         {
             if (_json.Length <= 2) return Array.Empty<double>(); // Empty JSON object
-            try
-            {
-                return _json.Span.GetDoubleArray("/numbers"u8);
-            }
-            catch
-            {
-                return Array.Empty<double>();
-            }
+            return _json.Span.GetDoubleArray("/numbers"u8);
         }
         set
         {
@@ -278,29 +257,22 @@ public class InputModelJson : JsonModel<InputModelJson>
         }
         
         // Try to get from JSON for additional properties
-        try
+        string propertyName = Encoding.UTF8.GetString(name);
+        ReadOnlySpan<byte> jsonPointer = Encoding.UTF8.GetBytes($"/{propertyName}");
+        
+        if (_json.Span.TryGetElement(jsonPointer, out JsonElement element))
         {
-            string propertyName = Encoding.UTF8.GetString(name);
-            ReadOnlySpan<byte> jsonPointer = Encoding.UTF8.GetBytes($"/{propertyName}");
-            
-            if (_json.Span.TryGetElement(jsonPointer, out JsonElement element))
+            // Convert JSON value to object based on type
+            value = element.ValueKind switch
             {
-                // Convert JSON value to object based on type
-                value = element.ValueKind switch
-                {
-                    JsonValueKind.String => element.GetString()!,
-                    JsonValueKind.Number => element.GetDouble(),
-                    JsonValueKind.True => true,
-                    JsonValueKind.False => false,
-                    JsonValueKind.Null => null!,
-                    _ => null! // For complex objects, we'll return null for now
-                };
-                return value != null;
-            }
-        }
-        catch
-        {
-            // If parsing fails, property doesn't exist
+                JsonValueKind.String => element.GetString()!,
+                JsonValueKind.Number => element.GetDouble(),
+                JsonValueKind.True => true,
+                JsonValueKind.False => false,
+                JsonValueKind.Null => null!,
+                _ => null! // For complex objects, we'll return null for now
+            };
+            return value != null;
         }
         
         value = default!;
