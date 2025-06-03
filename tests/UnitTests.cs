@@ -133,8 +133,6 @@ public class Tests
     
 
     
-    // TODO: This test requires infrastructure changes to support additional properties in JSON-only storage
-    /*
     [Test]
     public void InputModelJsonComprehensiveTest()
     {
@@ -160,7 +158,7 @@ public class Tests
         // Test JsonView access for complex objects
         try
         {
-            JsonView bar = model.Json["bar"];
+            InputModelJsonHelper bar = model.Json["bar"];
             Assert.That(bar.GetDouble("baz"u8), Is.EqualTo(1));
         }
         catch (Exception ex)
@@ -190,7 +188,6 @@ public class Tests
         Assert.That(deserializedModel.Numbers, Is.EqualTo(new[] { 42.0, 3.14 }));
         Assert.That(deserializedModel.Names, Is.EqualTo(new[] { "my first building", "PI" }));
     }
-    */
     
     [Test]
     public void InputModelJsonBasicTest()

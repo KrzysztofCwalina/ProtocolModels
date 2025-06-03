@@ -146,6 +146,9 @@ public class InputModelJson : IJsonModel<InputModelJson>
         _json = "{}"u8.ToArray();
     }
 
+    // Simple Json property for accessing the JSON data directly
+    public InputModelJsonHelper Json => new InputModelJsonHelper(_json);
+
 
 
 
@@ -350,6 +353,52 @@ public class InputModelJson : IJsonModel<InputModelJson>
         var result = new InputModelJson();
         result._json = stream.ToArray();
         return result;
+    }
+}
+
+// Helper class for JSON access on InputModelJson
+public class InputModelJsonHelper
+{
+    private readonly ReadOnlyMemory<byte> _json;
+
+    internal InputModelJsonHelper(ReadOnlyMemory<byte> json)
+    {
+        _json = json;
+    }
+
+    public InputModelJsonHelper this[string name]
+    {
+        get
+        {
+            // Parse the JSON to find the nested object
+            JsonDocument doc = JsonDocument.Parse(_json);
+            if (doc.RootElement.TryGetProperty(name, out JsonElement element))
+            {
+                // Serialize this element back to JSON bytes
+                using var stream = new MemoryStream();
+                using var writer = new Utf8JsonWriter(stream);
+                element.WriteTo(writer);
+                writer.Flush();
+                return new InputModelJsonHelper(stream.ToArray());
+            }
+            throw new KeyNotFoundException($"Property '{name}' not found");
+        }
+    }
+
+    public double GetDouble(ReadOnlySpan<byte> path)
+    {
+        // Ensure the path starts with '/' for JsonPointer compatibility
+        if (path.Length > 0 && path[0] != (byte)'/')
+        {
+            Span<byte> jsonPointerPath = stackalloc byte[path.Length + 1];
+            jsonPointerPath[0] = (byte)'/';
+            path.CopyTo(jsonPointerPath.Slice(1));
+            return _json.Span.GetDouble(jsonPointerPath);
+        }
+        else
+        {
+            return _json.Span.GetDouble(path);
+        }
     }
 }
 
