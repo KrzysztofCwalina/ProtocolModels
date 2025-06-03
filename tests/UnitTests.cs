@@ -107,6 +107,36 @@ public class Tests
     }
     
     [Test]
+    public void InputModelJsonBasicTest()
+    {
+        var model = new InputModelJson();
+        
+        // Test basic property setting and getting
+        model.Category = "test category";
+        model.Names = new[] { "name1", "name2" };
+        model.Numbers = new[] { 1.0, 2.0, 3.0 };
+        
+        Assert.That(model.Category, Is.EqualTo("test category"));
+        Assert.That(model.Names, Is.EqualTo(new[] { "name1", "name2" }));
+        Assert.That(model.Numbers, Is.EqualTo(new[] { 1.0, 2.0, 3.0 }));
+        
+        // Test serialization
+        BinaryData json = ModelReaderWriter.Write(model);
+        string jsonString = json.ToString();
+        
+        // Verify the JSON contains our data
+        Assert.That(jsonString, Does.Contain("test category"));
+        Assert.That(jsonString, Does.Contain("name1"));
+        Assert.That(jsonString, Does.Contain("name2"));
+        
+        // Test deserialization
+        var deserializedModel = ModelReaderWriter.Read<InputModelJson>(json);
+        Assert.That(deserializedModel.Category, Is.EqualTo("test category"));
+        Assert.That(deserializedModel.Names, Is.EqualTo(new[] { "name1", "name2" }));
+        Assert.That(deserializedModel.Numbers, Is.EqualTo(new[] { 1.0, 2.0, 3.0 }));
+    }
+    
+    [Test]
     public void NestedObjectAccessTests()
     {
         InputModel input = new();
