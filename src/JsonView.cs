@@ -212,7 +212,7 @@ public readonly struct JsonView
         {
             // Direct property access on the model
             ReadOnlySpan<byte> valueData = GetPropertyValue(name);
-            return valueData.AsString();
+            return valueData.GetString();
         }
     }
 
@@ -249,7 +249,7 @@ public readonly struct JsonView
         {
             // Direct property access on the model
             ReadOnlySpan<byte> valueData = GetPropertyValue(name);
-            return valueData.AsDouble();
+            return valueData.GetDouble();
         }
     }
     

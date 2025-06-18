@@ -5,49 +5,53 @@ using System.Text;
 using System.Diagnostics;
 using System.Buffers.Text;
 
+// TODO (pri 0): implement arrays, e.g. "/addresses/0/street"u8
+// TODO (pri 1): implement object graphs, e.g "/address/street"u8
+// TODO (pri 1): support null values for all types
+// TODO (pri 1): make sure JSON escaping works
+// TODO (pri 3): make sure JSON Pointer escaping works, e.g. "/a~/b"u8 finds property "a/b"
 public static class JsonPointer
 {
-    public static string AsString(this ReadOnlySpan<byte> json)
+    public static string? GetString(this BinaryData json, ReadOnlySpan<byte> pointer)
+        => json.Find(pointer).GetString();
+    public static string? GetString(this ReadOnlySpan<byte> json, ReadOnlySpan<byte> pointer)
+        => json.Find(pointer).GetString();
+    public static string? GetString(this ReadOnlySpan<byte> json)
     {
         Utf8JsonReader reader = new(json);
         bool success = reader.Read();
         Debug.Assert(success, "JSON must be valid UTF-8 and parseable as JSON");
-        return reader.GetString()!;
+        return reader.GetString();
     }
-    public static double AsDouble(this ReadOnlySpan<byte> json)
+
+    public static ReadOnlySpan<byte> GetUtf8(this BinaryData json, ReadOnlySpan<byte> pointer)
+        => json.Find(pointer).ValueSpan;
+
+    public static int GetInt32(this BinaryData json, ReadOnlySpan<byte> pointer)
+        => json.Find(pointer).GetInt32();
+    public static int GetInt32(this ReadOnlySpan<byte> json, ReadOnlySpan<byte> pointer)
+        => json.Find(pointer).GetInt32();
+
+    public static double GetDouble(this BinaryData json, ReadOnlySpan<byte> pointer)
+    => json.Find(pointer).GetDouble();
+    public static double GetDouble(this ReadOnlySpan<byte> json, ReadOnlySpan<byte> pointer)
+        => json.Find(pointer).GetDouble();
+    public static double GetDouble(this ReadOnlySpan<byte> json)
     {
         Utf8JsonReader reader = new(json);
         bool success = reader.Read();
         Debug.Assert(success, "JSON must be valid UTF-8 and parseable as JSON");
         return reader.GetDouble();
     }
-    public static string? GetString(this BinaryData json, ReadOnlySpan<byte> jsonPointer)
-        => json.Find(jsonPointer).GetString();
-    public static ReadOnlySpan<byte> ReadUtf8(this BinaryData json, ReadOnlySpan<byte> jsonPointer)
-        => json.Find(jsonPointer).ValueSpan;
-    public static int GetInt32(this BinaryData json, ReadOnlySpan<byte> jsonPointer)
-        => json.Find(jsonPointer).GetInt32();
-    public static bool ReadBoolean(this BinaryData json, ReadOnlySpan<byte> jsonPointer)
-        => json.Find(jsonPointer).GetBoolean();
 
-    public static double GetDouble(this BinaryData json, ReadOnlySpan<byte> jsonPointer)
-    => json.Find(jsonPointer).GetDouble();
+    public static bool GetBoolean(this BinaryData json, ReadOnlySpan<byte> pointer)
+        => json.Find(pointer).GetBoolean();
+    public static bool GetBoolean(this ReadOnlySpan<byte> json, ReadOnlySpan<byte> pointer)
+        => json.Find(pointer).GetBoolean();
 
-    public static double GetDouble(this ReadOnlySpan<byte> json, ReadOnlySpan<byte> jsonPointer)
-        => json.Find(jsonPointer).GetDouble();
-
-    public static string GetString(this ReadOnlySpan<byte> json, ReadOnlySpan<byte> jsonPointer)
-        => json.Find(jsonPointer).GetString()!;
-        
-    public static int GetInt32(this ReadOnlySpan<byte> json, ReadOnlySpan<byte> jsonPointer)
-        => json.Find(jsonPointer).GetInt32();
-        
-    public static bool GetBoolean(this ReadOnlySpan<byte> json, ReadOnlySpan<byte> jsonPointer)
-        => json.Find(jsonPointer).GetBoolean();
-
-    public static string[] GetStringArray(this ReadOnlySpan<byte> json, ReadOnlySpan<byte> jsonPointer)
+    public static string[] GetStringArray(this ReadOnlySpan<byte> json, ReadOnlySpan<byte> pointer)
     {
-        var reader = json.Find(jsonPointer);
+        var reader = json.Find(pointer);
         if (reader.TokenType != JsonTokenType.StartArray)
             return Array.Empty<string>();
         
@@ -62,9 +66,9 @@ public static class JsonPointer
         return strings.ToArray();
     }
 
-    public static double[] GetDoubleArray(this ReadOnlySpan<byte> json, ReadOnlySpan<byte> jsonPointer)
+    public static double[] GetDoubleArray(this ReadOnlySpan<byte> json, ReadOnlySpan<byte> pointer)
     {
-        var reader = json.Find(jsonPointer);
+        var reader = json.Find(pointer);
         if (reader.TokenType != JsonTokenType.StartArray)
             return Array.Empty<double>();
         
@@ -79,32 +83,7 @@ public static class JsonPointer
         return doubles.ToArray();
     }
 
-    public static JsonElement GetElement(this ReadOnlySpan<byte> json, ReadOnlySpan<byte> jsonPointer)
-    {
-        var reader = json.Find(jsonPointer);
-        return JsonDocument.ParseValue(ref reader).RootElement;
-    }
-
-    public static bool TryGetElement(this ReadOnlySpan<byte> json, ReadOnlySpan<byte> jsonPointer, out JsonElement element)
-    {
-        try
-        {
-            element = json.GetElement(jsonPointer);
-            return true;
-        }
-        catch
-        {
-            element = default;
-            return false;
-        }
-    }
-
-    // TODO (pri 0): implement arrays, e.g. "/addresses/0/street"u8
-    // TODO (pri 1): implement object graphs, e.g "/address/street"u8
-    // TODO (pri 1): support null values for all types
-    // TODO (pri 1): make sure JSON escaping works
-    // TODO (pri 3): make sure JSON Pointer escaping works, e.g. "/a~/b"u8 finds property "a/b"
-    private static Utf8JsonReader Find(this ReadOnlySpan<byte> json, ReadOnlySpan<byte> jsonPointer)
+    private static Utf8JsonReader Find(this ReadOnlySpan<byte> json, ReadOnlySpan<byte> pointer)
     {
         if (json.Length == 0) throw new ArgumentException("JSON document cannot be empty", nameof(json));
 
@@ -112,26 +91,29 @@ public static class JsonPointer
         bool success = reader.Read();
         Debug.Assert(success);
 
-        if (jsonPointer.Length == 0)
+        if (pointer.Length == 0)
         { // return the whole document
             return reader;
         }
 
-        return Find(reader, jsonPointer);
+        return Find(reader, pointer);
     }
 
-    private static Utf8JsonReader Find(Utf8JsonReader reader, ReadOnlySpan<byte> jsonPointer)
-    {
-        string propertyName = Encoding.UTF8.GetString(jsonPointer);
-        if (jsonPointer.Length == 0) return reader;
-        if (jsonPointer[0] != (byte)'/') throw new ArgumentException("JSON Pointer must start with '/'", nameof(jsonPointer));
-        if (jsonPointer.IndexOf((byte)'~') != -1) throw new NotImplementedException("JSON Pointer escaping not implemented yet");
+    private static Utf8JsonReader Find(this BinaryData json, ReadOnlySpan<byte> pointer)
+    => json.ToMemory().Span.Find(pointer);
 
-        jsonPointer = jsonPointer.Slice(1); // slice off the leading '/'
-        int slashIndex = jsonPointer.IndexOf((byte)'/');
-        ReadOnlySpan<byte> nextPointerSegment = slashIndex == -1 ? jsonPointer : jsonPointer.Slice(0, slashIndex);  
+    private static Utf8JsonReader Find(Utf8JsonReader reader, ReadOnlySpan<byte> pointer)
+    {
+        string propertyName = Encoding.UTF8.GetString(pointer);
+        if (pointer.Length == 0) return reader;
+        if (pointer[0] != (byte)'/') throw new ArgumentException("JSON Pointer must start with '/'", nameof(pointer));
+        if (pointer.IndexOf((byte)'~') != -1) throw new NotImplementedException("JSON Pointer escaping not implemented yet");
+
+        pointer = pointer.Slice(1); // slice off the leading '/'
+        int slashIndex = pointer.IndexOf((byte)'/');
+        ReadOnlySpan<byte> nextPointerSegment = slashIndex == -1 ? pointer : pointer.Slice(0, slashIndex);  
         string nextSegment = Encoding.UTF8.GetString(nextPointerSegment);
-        ReadOnlySpan<byte> remainingPointer = slashIndex == -1 ? ReadOnlySpan<byte>.Empty : jsonPointer.Slice(slashIndex);
+        ReadOnlySpan<byte> remainingPointer = slashIndex == -1 ? ReadOnlySpan<byte>.Empty : pointer.Slice(slashIndex);
         string remainingPointerString = Encoding.UTF8.GetString(remainingPointer);
 
         JsonTokenType jsonType = reader.TokenType;
@@ -162,12 +144,12 @@ public static class JsonPointer
         throw new KeyNotFoundException($"{Encoding.UTF8.GetString(propertyName)} not found in JSON document");
     }
 
-    private static Utf8JsonReader FindArrayItem(Utf8JsonReader reader, ReadOnlySpan<byte> jsonPointer)
+    private static Utf8JsonReader FindArrayItem(Utf8JsonReader reader, ReadOnlySpan<byte> pointer)
     {
-        string indexString = Encoding.UTF8.GetString(jsonPointer);
-        if (!Utf8Parser.TryParse(jsonPointer, out int index, out _))
+        string indexString = Encoding.UTF8.GetString(pointer);
+        if (!Utf8Parser.TryParse(pointer, out int index, out _))
         {
-            throw new ArgumentException($"Invalid JSON Pointer index: {Encoding.UTF8.GetString(jsonPointer)}");
+            throw new ArgumentException($"Invalid JSON Pointer index: {Encoding.UTF8.GetString(pointer)}");
         }
 
         int current = 0;
@@ -189,9 +171,6 @@ public static class JsonPointer
             // This handles objects, arrays, and primitive values correctly
             reader.Skip();
         }
-        throw new KeyNotFoundException($"{Encoding.UTF8.GetString(jsonPointer)} not found in JSON document");
+        throw new KeyNotFoundException($"{Encoding.UTF8.GetString(pointer)} not found in JSON document");
     }
-
-    private static Utf8JsonReader Find(this BinaryData json, ReadOnlySpan<byte> jsonPointer)
-        => json.ToMemory().Span.Find(jsonPointer);
 }
