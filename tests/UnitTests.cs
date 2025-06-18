@@ -2,6 +2,7 @@
 using System;
 using System.ClientModel.Primitives;
 
+// TODO: what do we do with enums and other types we cannot implement JsonModel on?
 public class ModelAdditionalPropertiesTests
 {
     [Test]
