@@ -71,3 +71,14 @@ public class OutputModel : JsonModel<OutputModel>
     }
 }
 
+public class NamedNumber
+{
+    public NamedNumber(string name, int value)
+    {
+        Name = name;
+        Value = value;
+    }
+    public string Name { get; }
+    public int Value { get; }
+}
+

@@ -282,10 +282,6 @@ public readonly struct JsonView
         }
         return list.ToArray();
     }
-
-    [EditorBrowsable(EditorBrowsableState.Never)]
-    public void Write(Utf8JsonWriter writer, ModelReaderWriterOptions options)
-        => _model.WriteAdditionalProperties(writer, options);
 }
 
 

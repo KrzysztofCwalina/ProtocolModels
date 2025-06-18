@@ -2,27 +2,11 @@
 using System.Text;
 using System.Text.Json;
 
-// it's internal, so we can modify it later
-internal interface IJsonModel
-{
-    bool TryGet(ReadOnlySpan<byte> name, out ReadOnlySpan<byte> value);
-    void Set(ReadOnlySpan<byte> name, ReadOnlySpan<byte> value);
-    bool TryGetPropertyType(ReadOnlySpan<byte> name, out Type value);
-
-    void WriteAdditionalProperties(Utf8JsonWriter writer, ModelReaderWriterOptions options);
-}
-
 // TOOD: what do we do with struct models?
 public abstract class JsonModel<T> : IJsonModel<T>, IJsonModel
 {
     private JsonProperties additionalProperties = new();
     public JsonView Json => new JsonView(this);
-
-    protected abstract bool TryGetProperty(ReadOnlySpan<byte> name, out object value);
-    protected abstract bool TryGetPropertyType(ReadOnlySpan<byte> name, out Type? type);
-    protected abstract bool TrySetProperty(ReadOnlySpan<byte> name, object value);
-    protected abstract void WriteCore(Utf8JsonWriter writer, ModelReaderWriterOptions options);
-    protected abstract T CreateCore(ref Utf8JsonReader reader, ModelReaderWriterOptions options);
 
     public ReadOnlySpan<byte> this[ReadOnlySpan<byte> name]
     {
@@ -42,6 +26,12 @@ public abstract class JsonModel<T> : IJsonModel<T>, IJsonModel
                 throw new ArgumentException($"Property '{name}' not found or cannot be set.");
         }
     }
+
+    protected abstract bool TryGetPropertyType(ReadOnlySpan<byte> name, out Type? type);
+    protected abstract bool TryGetProperty(ReadOnlySpan<byte> name, out object value);
+    protected abstract bool TrySetProperty(ReadOnlySpan<byte> name, object value);
+    protected abstract void WriteCore(Utf8JsonWriter writer, ModelReaderWriterOptions options);
+    protected abstract T CreateCore(ref Utf8JsonReader reader, ModelReaderWriterOptions options);
 
     bool IJsonModel.TryGet(ReadOnlySpan<byte> name, out ReadOnlySpan<byte> value)
     {
@@ -107,10 +97,10 @@ public abstract class JsonModel<T> : IJsonModel<T>, IJsonModel
             SetRealProperty(name, value);
     }
 
-    bool IJsonModel.TryGetPropertyType(ReadOnlySpan<byte> name, out Type? value)
+    bool IJsonModel.TryGetPropertyType(ReadOnlySpan<byte> name, out Type value)
         => TryGetPropertyType(name, out value);
 
-    void IJsonModel.WriteAdditionalProperties(Utf8JsonWriter writer, ModelReaderWriterOptions options)
+    protected void WriteAdditionalProperties(Utf8JsonWriter writer, ModelReaderWriterOptions options)
         => additionalProperties.Write(writer, options);
 
     private void SetRealProperty(ReadOnlySpan<byte> name, ReadOnlySpan<byte> json)
@@ -224,88 +214,5 @@ public abstract class JsonModel<T> : IJsonModel<T>, IJsonModel
     }
 
     #endregion
-}
-
-public struct JsonProperties
-{
-    private Dictionary<string, ReadOnlyMemory<byte>> _properties;
-    public void Set(string name, ReadOnlySpan<byte> value)
-    {
-        if (_properties == null)
-            _properties = new Dictionary<string, ReadOnlyMemory<byte>>();
-        _properties[name] = value.ToArray();
-    }
-    public void Set(ReadOnlySpan<byte> name, ReadOnlySpan<byte> value)
-        => Set(Encoding.UTF8.GetString(name), value);
-    public bool TryGet(string name, out ReadOnlySpan<byte> value)
-    {
-        ReadOnlyMemory<byte> memory = default;
-        if (_properties != null && _properties.TryGetValue(name, out memory))
-        {
-            value = memory.Span;
-            return true;
-        }
-        value = default;
-        return false;
-    }
-    public bool TryGet(ReadOnlySpan<byte> name, out ReadOnlySpan<byte> value)
-    {
-        string strName = Encoding.UTF8.GetString(name);
-        return TryGet(strName, out value);
-    }
-
-    internal void Write(Utf8JsonWriter writer, ModelReaderWriterOptions options)
-    {
-        if (_properties != null)
-        {
-            foreach (var kvp in _properties)
-            {
-                writer.WritePropertyName(kvp.Key);
-                writer.WriteRawValue(kvp.Value.Span, true); // true to escape the value
-            }
-        }
-    }
-
-}
-
-/// <summary>
-/// Extension methods for IJsonModel
-/// </summary>
-internal static class JsonModelExtensions
-{
-    public static ReadOnlySpan<byte> Get(this IJsonModel model, string name)
-    {
-        ReadOnlySpan<byte> nameBytes = Encoding.UTF8.GetBytes(name);
-        if (!model.TryGet(nameBytes, out ReadOnlySpan<byte> value))
-            throw new KeyNotFoundException($"Property '{name}' not found");
-        return value;
-    }
-
-    public static ReadOnlySpan<byte> Get(this IJsonModel model, ReadOnlySpan<byte> name)
-    {
-        if (!model.TryGet(name, out ReadOnlySpan<byte> value))
-        {
-            // Only convert to string for the exception message
-            throw new KeyNotFoundException($"Property not found");
-        }
-        return value;
-    }
-
-    public static ReadOnlySpan<byte> Get(this JsonProperties properties, string name)
-    {
-        if (!properties.TryGet(name, out ReadOnlySpan<byte> value))
-            throw new KeyNotFoundException($"Property '{name}' not found");
-        return value;
-    }
-
-    public static ReadOnlySpan<byte> Get(this JsonProperties properties, ReadOnlySpan<byte> name)
-    {
-        if (!properties.TryGet(name, out ReadOnlySpan<byte> value))
-        {
-            // Only convert to string for the exception message
-            throw new KeyNotFoundException($"Property not found");
-        }
-        return value;
-    }
 }
 
