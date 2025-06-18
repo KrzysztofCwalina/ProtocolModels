@@ -2,7 +2,7 @@
 using System;
 using System.ClientModel.Primitives;
 
-public class Tests
+public class ModelAdditionalPropertiesTests
 {
     [Test]
     public void SmokeTests()
@@ -12,7 +12,7 @@ public class Tests
         input.Numbers = [42, 3.14];
         input.Names = ["my first building", "PI"];
 
-        // Adds JSON-only properties to the input model
+        // Cute syntax adding JSON-only properties to the input model
         input += """
         {
             "foo": 0.95,
@@ -22,53 +22,21 @@ public class Tests
         }
         """u8;
 
-        input.Json.Set("temperature"u8, 90d); // adds JSON-only property
-        input.Json.Set("category"u8, "facts"); // changes CLR property
-        input.Json.Set("numbers"u8, "[3.14, 7]"u8); // changes CLR property
-        input.Json.Set("complex"u8, "{ \"name\": \"foo\", \"value\": 100 }"u8); // adds complex JSON-only property
-
-        JsonView bar = input.Json["bar"]; // Accessing a JSON-only property returning complex object.
-        Assert.That(bar.GetDouble("baz"u8), Is.EqualTo(1));
-        
-        // Add the failing test case mentioned in the issue
-        Assert.That(input.Json.GetDouble("bar/baz"u8), Is.EqualTo(1));
-
-        JsonView complex = input.Json["complex"];
-        Assert.That(complex.GetDouble("value"u8), Is.EqualTo(100));
+        input["category"] = "facts"; // changes CLR property
+        input["numbers"] = new double[] { 3.14, 7 }; // changes CLR array property
+        input["temperature"] = 90d; // adds JSON-only property
+        input["complex"u8] = """{ "name": "foo", "value": 100 }"""u8; // adds JSON-only property
 
         Assert.That(input.Category, Is.EqualTo("facts"));
         Assert.That(input.Numbers, Is.EqualTo(new double[] { 3.14, 7d }));
         Assert.That(input.Names, Is.EqualTo(new string[] { "my first building", "PI" }));
+
+        Assert.That(input.Json.GetDouble("bar/baz"u8), Is.EqualTo(1));
+        Assert.That(input.Json.GetDouble("complex/value"u8), Is.EqualTo(100));
         Assert.That(input.Json.GetDouble("temperature"u8), Is.EqualTo(90d));
         Assert.That(input.Json.GetString("category"u8), Is.EqualTo("facts"));
-
-        // Test GetArray<T> for numbers and names
-        double[] numbers = input.Json.GetArray<double>("numbers"u8);
-        Assert.That(numbers, Is.EqualTo(new double[] { 3.14, 7d }));
-        string[] names = input.Json.GetArray<string>("names"u8);
-        Assert.That(names, Is.EqualTo(new string[] { "my first building", "PI" }));
-
-        // serialize
-        BinaryData json = ModelReaderWriter.Write(input);
-
-        Assert.That(json.GetString("/category"u8), Is.EqualTo(input.Category));
-        Assert.That(json.GetDouble("/numbers/0"u8), Is.EqualTo(input.Numbers[0]));
-        Assert.That(json.GetDouble("/numbers/1"u8), Is.EqualTo(input.Numbers[1]));
-        Assert.That(json.GetString("/names/0"u8), Is.EqualTo(input.Names[0]));
-        Assert.That(json.GetString("/names/1"u8), Is.EqualTo(input.Names[1]));
-        Assert.That(json.GetDouble("/temperature"u8), Is.EqualTo(90d));
-
-
-        OutputModel output = """
-        {
-            "confidence": 0.95,
-            "text": "some text"
-        }
-        """u8;
-
-        Assert.That(output.Confidence, Is.EqualTo(0.95f));
-        Assert.That(output.Json.GetDouble("confidence"u8), Is.EqualTo(0.95));
-        Assert.That(output.Json.GetString("text"u8), Is.EqualTo("some text"));
+        Assert.That(input.Json.GetArray<double>("numbers"u8), Is.EqualTo(new double[] { 3.14, 7d }));
+        Assert.That(input.Json.GetArray<string>("names"u8), Is.EqualTo(new string[] { "my first building", "PI" }));
     }
 
     [Test]
@@ -109,118 +77,7 @@ public class Tests
     }
     
     [Test]
-    public void InputModelOriginalTest()
-    {
-        InputModel input = new();
-        input.Category = "number facts";
-        input.Numbers = [42, 3.14];
-        input.Names = ["my first building", "PI"];
-
-        // Adds JSON-only properties to the input model
-        input += """
-        {
-            "foo": 0.95,
-            "bar": { 
-                "baz" : 1 
-            }
-        }
-        """u8;
-
-        JsonView bar = input.Json["bar"]; // Accessing a JSON-only property returning complex object.
-        Assert.That(bar.GetDouble("baz"u8), Is.EqualTo(1));
-        
-        // Add the failing test case mentioned in the issue
-        Assert.That(input.Json.GetDouble("bar/baz"u8), Is.EqualTo(1));
-    }
-    
-    [Test]
-    public void InputModelJsonComprehensiveTest()
-    {
-        var model = new InputModelJson();
-        model.Category = "number facts";
-        model.Numbers = new[] { 42.0, 3.14 };
-        model.Names = new[] { "my first building", "PI" };
-
-        // Test adding JSON-only properties through addition operator
-        model += """
-        {
-            "foo": 0.95,
-            "bar": { 
-                "baz" : 1 
-            }
-        }
-        """u8;
-
-        // Debug: Print the JSON to see what it contains
-        BinaryData json = ModelReaderWriter.Write(model);
-        Console.WriteLine($"JSON after addition: {json}");
-
-        // Test JsonView access for complex objects
-        try
-        {
-            InputModelJsonHelper bar = model.Json["bar"];
-            Assert.That(bar.GetDouble("baz"u8), Is.EqualTo(1));
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error accessing bar: {ex}");
-            throw;
-        }
-        
-        // Test nested path access
-        Assert.That(model.Json.GetDouble("bar/baz"u8), Is.EqualTo(1));
-
-        // Verify basic properties
-        Assert.That(model.Category, Is.EqualTo("number facts"));
-        Assert.That(model.Numbers, Is.EqualTo(new[] { 42.0, 3.14 }));
-        Assert.That(model.Names, Is.EqualTo(new[] { "my first building", "PI" }));
-
-        // Test serialization
-        Assert.That(json.GetString("/category"u8), Is.EqualTo(model.Category));
-        Assert.That(json.GetDouble("/numbers/0"u8), Is.EqualTo(model.Numbers[0]));
-        Assert.That(json.GetDouble("/numbers/1"u8), Is.EqualTo(model.Numbers[1]));
-        Assert.That(json.GetString("/names/0"u8), Is.EqualTo(model.Names[0]));
-        Assert.That(json.GetString("/names/1"u8), Is.EqualTo(model.Names[1]));
-        
-        // Test deserialization
-        var deserializedModel = ModelReaderWriter.Read<InputModelJson>(json);
-        Assert.That(deserializedModel.Category, Is.EqualTo("number facts"));
-        Assert.That(deserializedModel.Numbers, Is.EqualTo(new[] { 42.0, 3.14 }));
-        Assert.That(deserializedModel.Names, Is.EqualTo(new[] { "my first building", "PI" }));
-    }
-    
-    [Test]
-    public void InputModelJsonBasicTest()
-    {
-        var model = new InputModelJson();
-        
-        // Test basic property setting and getting
-        model.Category = "test category";
-        model.Names = new[] { "name1", "name2" };
-        model.Numbers = new[] { 1.0, 2.0, 3.0 };
-        
-        Assert.That(model.Category, Is.EqualTo("test category"));
-        Assert.That(model.Names, Is.EqualTo(new[] { "name1", "name2" }));
-        Assert.That(model.Numbers, Is.EqualTo(new[] { 1.0, 2.0, 3.0 }));
-        
-        // Test serialization
-        BinaryData json = ModelReaderWriter.Write(model);
-        string jsonString = json.ToString();
-        
-        // Verify the JSON contains our data
-        Assert.That(jsonString, Does.Contain("test category"));
-        Assert.That(jsonString, Does.Contain("name1"));
-        Assert.That(jsonString, Does.Contain("name2"));
-        
-        // Test deserialization
-        var deserializedModel = ModelReaderWriter.Read<InputModelJson>(json);
-        Assert.That(deserializedModel.Category, Is.EqualTo("test category"));
-        Assert.That(deserializedModel.Names, Is.EqualTo(new[] { "name1", "name2" }));
-        Assert.That(deserializedModel.Numbers, Is.EqualTo(new[] { 1.0, 2.0, 3.0 }));
-    }
-    
-    [Test]
-    public void NestedObjectAccessTests()
+    public void NestedObjectTests()
     {
         InputModel input = new();
         input.Category = "nested objects";
@@ -262,5 +119,36 @@ public class Tests
         // Test array access with paths
         Assert.That(input.Json.GetDouble("items/0/id"u8), Is.EqualTo(1));
         Assert.That(input.Json.GetString("items/1/name"u8), Is.EqualTo("item2"));
+    }
+
+    [Test]
+    public void SerializationTests() {
+        InputModel input = new();
+        input.Names = ["my first building", "PI"];
+
+        // Adds JSON-only properties to the input model
+        input += """
+        {
+            "foo": 0.95,
+            "bar": { 
+                "baz" : 1 
+            }
+        }
+        """u8;
+
+        input["category"] = "facts";
+        input["numbers"] = new double[] { 3.14, 7 }; // changes CLR property
+        input["temperature"] = 90d; // adds JSON-only property
+        input["complex"u8] = "{ \"name\": \"foo\", \"value\": 100 }"u8;
+
+        // serialize
+        BinaryData json = ModelReaderWriter.Write(input);
+
+        Assert.That(json.GetString("/category"u8), Is.EqualTo(input.Category));
+        Assert.That(json.GetDouble("/numbers/0"u8), Is.EqualTo(input.Numbers[0]));
+        Assert.That(json.GetDouble("/numbers/1"u8), Is.EqualTo(input.Numbers[1]));
+        Assert.That(json.GetString("/names/0"u8), Is.EqualTo(input.Names[0]));
+        Assert.That(json.GetString("/names/1"u8), Is.EqualTo(input.Names[1]));
+        Assert.That(json.GetDouble("/temperature"u8), Is.EqualTo(90d));
     }
 }

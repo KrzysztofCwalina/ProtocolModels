@@ -24,12 +24,25 @@ public abstract class JsonModel<T> : IJsonModel<T>, IJsonModel
     protected abstract void WriteCore(Utf8JsonWriter writer, ModelReaderWriterOptions options);
     protected abstract T CreateCore(ref Utf8JsonReader reader, ModelReaderWriterOptions options);
 
-    public object this[string name]
+    public ReadOnlySpan<byte> this[ReadOnlySpan<byte> name]
     {
         // TODO: implement adding natural conversions
-        set => throw new NotImplementedException();
-        get => throw new NotImplementedException();
+        set
+        {
+            Json.Set(name, value);
+        }
     }
+
+    public object this[string name]
+    {
+        set
+        {
+            ReadOnlySpan<byte> nameBytes = Encoding.UTF8.GetBytes(name);
+            if (!TrySetProperty(nameBytes, value))
+                throw new ArgumentException($"Property '{name}' not found or cannot be set.");
+        }
+    }
+
     bool IJsonModel.TryGet(ReadOnlySpan<byte> name, out ReadOnlySpan<byte> value)
     {
         if(additionalProperties.TryGet(name, out value))

@@ -19,7 +19,7 @@ public class OutputModel : JsonModel<OutputModel>
             {
                 byte[] nameBytes = Encoding.UTF8.GetBytes(property.Name);
                 byte[] valueBytes = Encoding.UTF8.GetBytes(property.Value.GetRawText());
-                Json.Set(nameBytes, valueBytes);
+                Json.Set(nameBytes, (ReadOnlySpan<byte>)valueBytes);
             }
         }
         return this;

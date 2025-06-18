@@ -24,7 +24,7 @@ public readonly struct JsonView
         int slashIndex = name.IndexOf((byte)'/');
         if (slashIndex > 0)
         {
-            SetArrayItem(name.Slice(0, slashIndex), name.Slice(slashIndex + 1), value);
+            ArrayModifiers.SetArrayItem(_model, name.Slice(0, slashIndex), name.Slice(slashIndex + 1), value);
             return;
         }
 
@@ -42,7 +42,7 @@ public readonly struct JsonView
         int slashIndex = name.IndexOf((byte)'/');
         if (slashIndex > 0)
         {
-            SetArrayItem(name.Slice(0, slashIndex), name.Slice(slashIndex + 1), value);
+            ArrayModifiers.SetArrayItem(_model, name.Slice(0, slashIndex), name.Slice(slashIndex + 1), value);
             return;
         }
 
@@ -60,7 +60,7 @@ public readonly struct JsonView
         int slashIndex = name.IndexOf((byte)'/');
         if (slashIndex > 0)
         {
-            SetArrayItem(name.Slice(0, slashIndex), name.Slice(slashIndex + 1), value);
+            ArrayModifiers.SetArrayItem(_model, name.Slice(0, slashIndex), name.Slice(slashIndex + 1), value);
             return;
         }
 
@@ -72,87 +72,33 @@ public readonly struct JsonView
         Set(name, json);
     }
 
+    public void Set(ReadOnlySpan<byte> name, object value)
+    {
+        if (value is string strValue)
+        {
+            Set(name, strValue);
+            return;
+        }
+
+        if (value is double doubleValue)
+        {
+            Set(name, doubleValue);
+            return;
+        }
+
+        if (value is int intValue)
+        {
+            Set(name, intValue);
+            return;
+        }
+
+        throw new NotImplementedException();
+    }
     // add or change value
     public void Set(ReadOnlySpan<byte> name, ReadOnlySpan<byte> json)
         => _model.Set(name, json);
     public void Set(string name, ReadOnlySpan<byte> json)
         => Set(Encoding.UTF8.GetBytes(name), json);
-
-    // TODO: add Set overloads for other types (int, bool, etc.)
-
-    private void SetArrayItem<T>(ReadOnlySpan<byte> arrayProperty, ReadOnlySpan<byte> indexSpan, T value)
-    {
-        if (!Utf8Parser.TryParse(indexSpan, out int index, out _))
-        {
-            throw new ArgumentException($"Invalid array index: {Encoding.UTF8.GetString(indexSpan)}");
-        }
-
-        // Check if this is a real property with a specific type
-        Type? propertyType = _model.GetPropertyType(arrayProperty);
-        
-        // Get current array - must exist
-        ReadOnlySpan<byte> currentJson = _model.Get(arrayProperty);
-
-        // Use typed array handling based on property type
-        Type? elementType = propertyType?.IsArray == true ? propertyType.GetElementType() : null;
-        
-        if (elementType == typeof(int))
-        {
-            ArrayModifiers.ModifyInt32Array(_model, arrayProperty, currentJson, index, (int)(object)value!);
-        }
-        else if (elementType == typeof(float))  
-        {
-            ArrayModifiers.ModifyFloatArray(_model, arrayProperty, currentJson, index, (float)(object)value!);
-        }
-        else if (elementType == typeof(string))
-        {
-            ArrayModifiers.ModifyStringArray(_model, arrayProperty, currentJson, index, (string)(object)value!);
-        }
-        else if (elementType == typeof(double))
-        {
-            ArrayModifiers.ModifyDoubleArray(_model, arrayProperty, currentJson, index, (double)(object)value!);
-        }
-        else if (elementType == null)
-        {
-            // For JSON-only arrays without explicit type, use the value type to determine the array type
-            if (typeof(T) == typeof(int))
-            {
-                ArrayModifiers.ModifyInt32Array(_model, arrayProperty, currentJson, index, (int)(object)value!);
-            }
-            else if (typeof(T) == typeof(float))  
-            {
-                ArrayModifiers.ModifyFloatArray(_model, arrayProperty, currentJson, index, (float)(object)value!);
-            }
-            else if (typeof(T) == typeof(string))
-            {
-                ArrayModifiers.ModifyStringArray(_model, arrayProperty, currentJson, index, (string)(object)value!);
-            }
-            else if (typeof(T) == typeof(double))
-            {
-                ArrayModifiers.ModifyDoubleArray(_model, arrayProperty, currentJson, index, (double)(object)value!);
-            }
-            else
-            {
-                throw new NotSupportedException($"Value type '{typeof(T).Name}' is not supported for array item modification");
-            }
-        }
-        else
-        {
-            throw new NotSupportedException($"Array element type '{elementType.Name}' is not supported for array item modification");
-        }
-    }
-
-    // Gets the first segment of a path (before the first slash)
-    private ReadOnlySpan<byte> GetFirstSegment(ReadOnlySpan<byte> name)
-    {
-        // Check if this is a nested path (contains '/')
-        int slashIndex = name.IndexOf((byte)'/');
-        if (slashIndex <= 0)
-            return name;  // No more nesting
-        
-        // Return just the first segment
-        return name.Slice(0, slashIndex);
-    }
     
     public JsonView this[string name]
     {

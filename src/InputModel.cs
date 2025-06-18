@@ -8,12 +8,13 @@ public class InputModel : JsonModel<InputModel>
     public string[] Names { get; set; } = Array.Empty<string>();
     public double[] Numbers { get; set; } = Array.Empty<double>();
 
+    // TODO: this does not merge JSON properties on model
     public static InputModel operator+(InputModel model, ReadOnlySpan<byte> json)
     {
-        var sum = ModelReaderWriter.Read<InputModel>(BinaryData.FromBytes(json.ToArray()))!;
+        InputModel sum = ModelReaderWriter.Read<InputModel>(BinaryData.FromBytes(json.ToArray()))!;
         if (sum.TryGetProperty("category"u8, out _))
         {
-            sum.Category = model.Category; // TODO: don't we need a copy?
+            sum.Category = model.Category;
         }
         if (sum.TryGetProperty("names"u8, out _))
         {
@@ -26,44 +27,6 @@ public class InputModel : JsonModel<InputModel>
         return sum;
     }    
     
-    protected override InputModel CreateCore(ref Utf8JsonReader reader, ModelReaderWriterOptions options)
-    {
-        JsonDocument doc = JsonDocument.ParseValue(ref reader);
-        JsonElement root = doc.RootElement;
-        foreach (var property in root.EnumerateObject())
-        {
-            if (property.NameEquals("category"))
-            {
-                Category = property.Value.GetString() ?? string.Empty;
-            }
-            else if (property.NameEquals("names"))
-            {
-                List<string> namesList = new List<string>();
-                foreach (var item in property.Value.EnumerateArray())
-                {
-                    namesList.Add(item.GetString() ?? string.Empty);
-                }
-                Names = namesList.ToArray();
-            }
-            else if (property.NameEquals("numbers"))
-            {
-                List<double> numbersList = new List<double>();
-                foreach (var item in property.Value.EnumerateArray())
-                {
-                    numbersList.Add(item.GetDouble());
-                }
-                Numbers = numbersList.ToArray();
-            }
-            else
-            {
-                byte[] nameBytes = Encoding.UTF8.GetBytes(property.Name);
-                byte[] valueBytes = Encoding.UTF8.GetBytes(property.Value.GetRawText());
-                Json.Set(nameBytes, valueBytes);
-            }
-        }
-        return this;
-    }
-
     protected override Type GetPropertyType(ReadOnlySpan<byte> name)
     {
         if (name.SequenceEqual("category"u8)) return typeof(string);
@@ -110,7 +73,48 @@ public class InputModel : JsonModel<InputModel>
             Numbers = numbers;
             return true;
         }
-        throw new NotImplementedException();
+
+        Json.Set(name, value);
+
+        return true;
+    }
+
+    protected override InputModel CreateCore(ref Utf8JsonReader reader, ModelReaderWriterOptions options)
+    {
+        JsonDocument doc = JsonDocument.ParseValue(ref reader);
+        JsonElement root = doc.RootElement;
+        foreach (var property in root.EnumerateObject())
+        {
+            if (property.NameEquals("category"))
+            {
+                Category = property.Value.GetString() ?? string.Empty;
+            }
+            else if (property.NameEquals("names"))
+            {
+                List<string> namesList = new List<string>();
+                foreach (var item in property.Value.EnumerateArray())
+                {
+                    namesList.Add(item.GetString() ?? string.Empty);
+                }
+                Names = namesList.ToArray();
+            }
+            else if (property.NameEquals("numbers"))
+            {
+                List<double> numbersList = new List<double>();
+                foreach (var item in property.Value.EnumerateArray())
+                {
+                    numbersList.Add(item.GetDouble());
+                }
+                Numbers = numbersList.ToArray();
+            }
+            else
+            {
+                byte[] nameBytes = Encoding.UTF8.GetBytes(property.Name);
+                byte[] valueBytes = Encoding.UTF8.GetBytes(property.Value.GetRawText());
+                Json.Set(nameBytes, (ReadOnlySpan<byte>)valueBytes);
+            }
+        }
+        return this;
     }
 
     protected override void WriteCore(Utf8JsonWriter writer, ModelReaderWriterOptions options)

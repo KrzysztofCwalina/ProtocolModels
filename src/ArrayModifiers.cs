@@ -1,9 +1,43 @@
+using System.Buffers.Text;
 using System.Text;
 using System.Text.Json;
 
 internal static class ArrayModifiers
 {
-    public static void ModifyInt32Array(IJsonModel model, ReadOnlySpan<byte> arrayProperty, ReadOnlySpan<byte> currentJson, int index, int newValue)
+    public static void SetArrayItem<T>(IJsonModel model, ReadOnlySpan<byte> propertyName, ReadOnlySpan<byte> indexText, T value)
+    {
+        if (!Utf8Parser.TryParse(indexText, out int index, out _))
+        {
+            throw new ArgumentException($"Invalid array index: {Encoding.UTF8.GetString(indexText)}");
+        }
+
+        // Get current array - must exist
+        ReadOnlySpan<byte> currentJson = model.Get(propertyName);
+
+        // For JSON-only arrays without explicit type, use the value type to determine the array type
+        if (typeof(T) == typeof(int))
+        {
+            ModifyInt32Array(model, propertyName, currentJson, index, (int)(object)value!);
+        }
+        else if (typeof(T) == typeof(float))
+        {
+            ModifyFloatArray(model, propertyName, currentJson, index, (float)(object)value!);
+        }
+        else if (typeof(T) == typeof(string))
+        {
+            ModifyStringArray(model, propertyName, currentJson, index, (string)(object)value!);
+        }
+        else if (typeof(T) == typeof(double))
+        {
+            ModifyDoubleArray(model, propertyName, currentJson, index, (double)(object)value!);
+        }
+        else
+        {
+            throw new NotSupportedException($"Value type '{typeof(T).Name}' is not supported for array item modification");
+        }
+    }
+
+    private static void ModifyInt32Array(IJsonModel model, ReadOnlySpan<byte> arrayProperty, ReadOnlySpan<byte> currentJson, int index, int newValue)
     {
         var reader = new Utf8JsonReader(currentJson);
         if (!reader.Read() || reader.TokenType != JsonTokenType.StartArray)
@@ -44,8 +78,8 @@ internal static class ArrayModifiers
         ReadOnlySpan<byte> arrayJson = stream.GetBuffer().AsSpan(0, (int)stream.Position);
         model.Set(arrayProperty, arrayJson);
     }
-    
-    public static void ModifyFloatArray(IJsonModel model, ReadOnlySpan<byte> arrayProperty, ReadOnlySpan<byte> currentJson, int index, float newValue)
+
+    private static void ModifyFloatArray(IJsonModel model, ReadOnlySpan<byte> arrayProperty, ReadOnlySpan<byte> currentJson, int index, float newValue)
     {
         var reader = new Utf8JsonReader(currentJson);
         if (!reader.Read() || reader.TokenType != JsonTokenType.StartArray)
@@ -86,8 +120,8 @@ internal static class ArrayModifiers
         ReadOnlySpan<byte> arrayJson = stream.GetBuffer().AsSpan(0, (int)stream.Position);
         model.Set(arrayProperty, arrayJson);
     }
-    
-    public static void ModifyStringArray(IJsonModel model, ReadOnlySpan<byte> arrayProperty, ReadOnlySpan<byte> currentJson, int index, string newValue)
+
+    private static void ModifyStringArray(IJsonModel model, ReadOnlySpan<byte> arrayProperty, ReadOnlySpan<byte> currentJson, int index, string newValue)
     {
         var reader = new Utf8JsonReader(currentJson);
         if (!reader.Read() || reader.TokenType != JsonTokenType.StartArray)
@@ -128,8 +162,8 @@ internal static class ArrayModifiers
         ReadOnlySpan<byte> arrayJson = stream.GetBuffer().AsSpan(0, (int)stream.Position);
         model.Set(arrayProperty, arrayJson);
     }
-    
-    public static void ModifyDoubleArray(IJsonModel model, ReadOnlySpan<byte> arrayProperty, ReadOnlySpan<byte> currentJson, int index, double newValue)
+
+    private static void ModifyDoubleArray(IJsonModel model, ReadOnlySpan<byte> arrayProperty, ReadOnlySpan<byte> currentJson, int index, double newValue)
     {
         var reader = new Utf8JsonReader(currentJson);
         if (!reader.Read() || reader.TokenType != JsonTokenType.StartArray)
