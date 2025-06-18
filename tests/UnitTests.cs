@@ -1,4 +1,5 @@
 ﻿using NUnit.Framework;
+using System;
 using System.ClientModel.Primitives;
 
 public class Tests
@@ -36,8 +37,8 @@ public class Tests
         Assert.That(complex.GetDouble("value"u8), Is.EqualTo(100));
 
         Assert.That(input.Category, Is.EqualTo("facts"));
-        Assert.That(input.Numbers, Is.EqualTo([3.14, 7d]));
-        Assert.That(input.Names, Is.EqualTo(["my first building", "PI"]));
+        Assert.That(input.Numbers, Is.EqualTo(new double[] { 3.14, 7d }));
+        Assert.That(input.Names, Is.EqualTo(new string[] { "my first building", "PI" }));
         Assert.That(input.Json.GetDouble("temperature"u8), Is.EqualTo(90d));
         Assert.That(input.Json.GetString("category"u8), Is.EqualTo("facts"));
 
@@ -131,8 +132,6 @@ public class Tests
         // Add the failing test case mentioned in the issue
         Assert.That(input.Json.GetDouble("bar/baz"u8), Is.EqualTo(1));
     }
-    
-
     
     [Test]
     public void InputModelJsonComprehensiveTest()

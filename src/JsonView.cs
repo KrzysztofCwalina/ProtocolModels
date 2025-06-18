@@ -98,7 +98,7 @@ public readonly struct JsonView
         
         if (elementType == typeof(int))
         {
-            ArrayModifiers.ModifyIntArray(_model, arrayProperty, currentJson, index, (int)(object)value!);
+            ArrayModifiers.ModifyInt32Array(_model, arrayProperty, currentJson, index, (int)(object)value!);
         }
         else if (elementType == typeof(float))  
         {
@@ -117,7 +117,7 @@ public readonly struct JsonView
             // For JSON-only arrays without explicit type, use the value type to determine the array type
             if (typeof(T) == typeof(int))
             {
-                ArrayModifiers.ModifyIntArray(_model, arrayProperty, currentJson, index, (int)(object)value!);
+                ArrayModifiers.ModifyInt32Array(_model, arrayProperty, currentJson, index, (int)(object)value!);
             }
             else if (typeof(T) == typeof(float))  
             {

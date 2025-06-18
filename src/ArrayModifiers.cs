@@ -3,7 +3,7 @@ using System.Text.Json;
 
 internal static class ArrayModifiers
 {
-    public static void ModifyIntArray(IJsonModel model, ReadOnlySpan<byte> arrayProperty, ReadOnlySpan<byte> currentJson, int index, int newValue)
+    public static void ModifyInt32Array(IJsonModel model, ReadOnlySpan<byte> arrayProperty, ReadOnlySpan<byte> currentJson, int index, int newValue)
     {
         var reader = new Utf8JsonReader(currentJson);
         if (!reader.Read() || reader.TokenType != JsonTokenType.StartArray)
