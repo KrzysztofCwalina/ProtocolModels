@@ -8,31 +8,14 @@ public class InputModel : JsonModel<InputModel>
     public string[] Names { get; set; } = Array.Empty<string>();
     public double[] Numbers { get; set; } = Array.Empty<double>();
 
-    // TODO: this does not merge JSON properties on model
-    public static InputModel operator+(InputModel model, ReadOnlySpan<byte> json)
+    #region Additional Properties "Reflection" APIs.
+    protected override bool TryGetPropertyType(ReadOnlySpan<byte> name, out Type? type)
     {
-        InputModel sum = ModelReaderWriter.Read<InputModel>(BinaryData.FromBytes(json.ToArray()))!;
-        if (sum.TryGetProperty("category"u8, out _))
-        {
-            sum.Category = model.Category;
-        }
-        if (sum.TryGetProperty("names"u8, out _))
-        {
-            sum.Names = model.Names;
-        }
-        if (sum.TryGetProperty("numbers"u8, out _))
-        {
-            sum.Numbers = model.Numbers;
-        }
-        return sum;
-    }    
-    
-    protected override Type GetPropertyType(ReadOnlySpan<byte> name)
-    {
-        if (name.SequenceEqual("category"u8)) return typeof(string);
-        if (name.SequenceEqual("names"u8)) return typeof(string[]);
-        if (name.SequenceEqual("numbers"u8)) return typeof(double[]);
-        return null;
+        type = null;
+        if (name.SequenceEqual("category"u8)) type = typeof(string);
+        else if (name.SequenceEqual("names"u8)) type = typeof(string[]);
+        else if (name.SequenceEqual("numbers"u8)) type = typeof(double[]);
+        return type != null;
     }
 
     protected override bool TryGetProperty(ReadOnlySpan<byte> name, out object value)
@@ -78,7 +61,9 @@ public class InputModel : JsonModel<InputModel>
 
         return true;
     }
+    #endregion
 
+    #region implementation of IJsonModel<T>
     protected override InputModel CreateCore(ref Utf8JsonReader reader, ModelReaderWriterOptions options)
     {
         JsonDocument doc = JsonDocument.ParseValue(ref reader);
@@ -117,6 +102,7 @@ public class InputModel : JsonModel<InputModel>
         return this;
     }
 
+    // implementation of IJsonModel<T>
     protected override void WriteCore(Utf8JsonWriter writer, ModelReaderWriterOptions options)
     {
         writer.WriteStartObject();
@@ -137,6 +123,26 @@ public class InputModel : JsonModel<InputModel>
         writer.WriteEndArray();
         Json.Write(writer, options); 
         writer.WriteEndObject();    
+    }
+    #endregion
+
+    // TODO: this does not merge JSON properties on model
+    public static InputModel operator +(InputModel model, ReadOnlySpan<byte> json)
+    {
+        InputModel sum = ModelReaderWriter.Read<InputModel>(BinaryData.FromBytes(json.ToArray()))!;
+        if (sum.TryGetProperty("category"u8, out _))
+        {
+            sum.Category = model.Category;
+        }
+        if (sum.TryGetProperty("names"u8, out _))
+        {
+            sum.Names = model.Names;
+        }
+        if (sum.TryGetProperty("numbers"u8, out _))
+        {
+            sum.Numbers = model.Numbers;
+        }
+        return sum;
     }
 }
 

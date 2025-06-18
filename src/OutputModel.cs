@@ -25,10 +25,15 @@ public class OutputModel : JsonModel<OutputModel>
         return this;
     }
 
-    protected override Type GetPropertyType(ReadOnlySpan<byte> name)
+    protected override bool TryGetPropertyType(ReadOnlySpan<byte> name, out Type? type)
     {
-        if (name.SequenceEqual("confidence"u8)) return typeof(float);
-        return null;
+        if (name.SequenceEqual("confidence"u8)) 
+        {
+            type = typeof(float);
+            return true;
+        }
+        type = null;
+        return false;
     }
 
 

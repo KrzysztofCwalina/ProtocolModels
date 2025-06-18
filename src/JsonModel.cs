@@ -7,7 +7,7 @@ internal interface IJsonModel
 {
     bool TryGet(ReadOnlySpan<byte> name, out ReadOnlySpan<byte> value);
     void Set(ReadOnlySpan<byte> name, ReadOnlySpan<byte> value);
-    Type? GetPropertyType(ReadOnlySpan<byte> name);
+    bool TryGetPropertyType(ReadOnlySpan<byte> name, out Type value);
 
     void WriteAdditionalProperties(Utf8JsonWriter writer, ModelReaderWriterOptions options);
 }
@@ -19,7 +19,7 @@ public abstract class JsonModel<T> : IJsonModel<T>, IJsonModel
     public JsonView Json => new JsonView(this);
 
     protected abstract bool TryGetProperty(ReadOnlySpan<byte> name, out object value);
-    protected abstract Type GetPropertyType(ReadOnlySpan<byte> name);
+    protected abstract bool TryGetPropertyType(ReadOnlySpan<byte> name, out Type? type);
     protected abstract bool TrySetProperty(ReadOnlySpan<byte> name, object value);
     protected abstract void WriteCore(Utf8JsonWriter writer, ModelReaderWriterOptions options);
     protected abstract T CreateCore(ref Utf8JsonReader reader, ModelReaderWriterOptions options);
@@ -101,26 +101,23 @@ public abstract class JsonModel<T> : IJsonModel<T>, IJsonModel
 
     void IJsonModel.Set(ReadOnlySpan<byte> name, ReadOnlySpan<byte> value)
     {
-        Type? ptype = GetPropertyType(name);
-        if (ptype!=null)
-        {
-            SetRealProperty(name, value);
-        }
-        else
-        {
+        if (!TryGetPropertyType(name, out Type? ptype))
             additionalProperties.Set(name, value);
-        }
+        else
+            SetRealProperty(name, value);
     }
 
-    Type? IJsonModel.GetPropertyType(ReadOnlySpan<byte> name)
-        => GetPropertyType(name);
+    bool IJsonModel.TryGetPropertyType(ReadOnlySpan<byte> name, out Type? value)
+        => TryGetPropertyType(name, out value);
 
     void IJsonModel.WriteAdditionalProperties(Utf8JsonWriter writer, ModelReaderWriterOptions options)
         => additionalProperties.Write(writer, options);
 
     private void SetRealProperty(ReadOnlySpan<byte> name, ReadOnlySpan<byte> json)
     {
-        Type ptype = GetPropertyType(name); // ensure the property exists and get its type
+        if (!TryGetPropertyType(name, out Type? ptype)){
+            throw new Exception("property not found");
+        }
         if (ptype.IsArray)
         {
             SetArrayProperty(name, json, ptype);

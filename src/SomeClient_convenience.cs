@@ -63,7 +63,7 @@ public class ConvenienceInputModel : JsonModel<ConvenienceInputModel>
         throw new NotImplementedException();
     }
 
-    protected override Type GetPropertyType(ReadOnlySpan<byte> name)
+    protected override bool TryGetPropertyType(ReadOnlySpan<byte> name, out Type? type)
     {
         throw new NotImplementedException();
     }
@@ -76,12 +76,12 @@ public class ConvenienceOutputModel : JsonModel<ConvenienceOutputModel>
         throw new NotImplementedException();
     }
 
-    protected override Type GetPropertyType(ReadOnlySpan<byte> name)
+    protected override bool TryGetProperty(ReadOnlySpan<byte> name, out object value)
     {
         throw new NotImplementedException();
     }
 
-    protected override bool TryGetProperty(ReadOnlySpan<byte> name, out object value)
+    protected override bool TryGetPropertyType(ReadOnlySpan<byte> name, out Type? type)
     {
         throw new NotImplementedException();
     }
