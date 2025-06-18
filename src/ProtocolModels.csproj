@@ -11,4 +11,8 @@
     <PackageReference Include="System.ClientModel" Version="1.4.1" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\System.CLientModel.Json\System.CLientModel.Json.csproj" />
+  </ItemGroup>
+
 </Project>

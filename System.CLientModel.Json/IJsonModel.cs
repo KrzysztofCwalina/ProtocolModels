@@ -1,7 +1,4 @@
-﻿using System.ClientModel.Primitives;
-using System.Text.Json;
-
-// it's internal, so we can modify it later
+﻿// it's internal, so we can modify it later
 internal interface IJsonModel
 {
     bool TryGet(ReadOnlySpan<byte> name, out ReadOnlySpan<byte> value);

@@ -7,6 +7,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ProtocolModels", "src\Proto
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnitTests", "tests\UnitTests.csproj", "{A13B8C93-64EA-04E6-A21E-20323ED872E0}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "System.CLientModel.Json", "System.CLientModel.Json\System.CLientModel.Json.csproj", "{4B8CD3B3-55B5-4D49-A69D-27F135E75742}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "System.ClientModel.Proxies", "System.ClientModel.Proxies\System.ClientModel.Proxies.csproj", "{68860569-0492-4086-9ED6-95A7DD8EACD5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +25,14 @@ Global
 		{A13B8C93-64EA-04E6-A21E-20323ED872E0}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A13B8C93-64EA-04E6-A21E-20323ED872E0}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A13B8C93-64EA-04E6-A21E-20323ED872E0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4B8CD3B3-55B5-4D49-A69D-27F135E75742}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4B8CD3B3-55B5-4D49-A69D-27F135E75742}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4B8CD3B3-55B5-4D49-A69D-27F135E75742}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4B8CD3B3-55B5-4D49-A69D-27F135E75742}.Release|Any CPU.Build.0 = Release|Any CPU
+		{68860569-0492-4086-9ED6-95A7DD8EACD5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{68860569-0492-4086-9ED6-95A7DD8EACD5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{68860569-0492-4086-9ED6-95A7DD8EACD5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{68860569-0492-4086-9ED6-95A7DD8EACD5}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -127,23 +127,4 @@ public class InputModel : JsonModel<InputModel>
         writer.WriteEndObject();    
     }
     #endregion
-
-    // TODO: this does not merge JSON properties on model
-    public static InputModel operator +(InputModel model, ReadOnlySpan<byte> json)
-    {
-        InputModel sum = ModelReaderWriter.Read<InputModel>(BinaryData.FromBytes(json.ToArray()))!;
-        if (sum.TryGetProperty("category"u8, out _))
-        {
-            sum.Category = model.Category;
-        }
-        if (sum.TryGetProperty("names"u8, out _))
-        {
-            sum.Names = model.Names;
-        }
-        if (sum.TryGetProperty("numbers"u8, out _))
-        {
-            sum.Numbers = model.Numbers;
-        }
-        return sum;
-    }
 }
