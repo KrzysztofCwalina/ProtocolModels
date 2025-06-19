@@ -44,7 +44,7 @@ public class JsonPointerTests
     [TestCase("/boolValue", typeof(bool), ExpectedResult = true)]
     //[TestCase("", typeof(ReadOnlySpan<byte>), ExpectedResult = json)]
     //[TestCase("/nullValue", typeof(object), ExpectedResult = null)]
-    public object SmokeTests(string pointer, Type valueType)
+    public object PositiveTests(string pointer, Type valueType)
     {
         byte[] jsonBytes = Encoding.UTF8.GetBytes(json);
         byte[] pointerBytes = Encoding.UTF8.GetBytes(pointer);
@@ -90,7 +90,7 @@ public class JsonPointerTests
     [TestCase("/boolValue", typeof(int), typeof(InvalidOperationException))]
     [TestCase("/nested/child/value", typeof(string), typeof(InvalidOperationException))]
     [TestCase("~", typeof(string), typeof(ArgumentException))]
-    public void InvalidPointersShouldThrow(string pointer, Type accessorType, Type expectedExceptionType)
+    public void NegativeTests(string pointer, Type accessorType, Type expectedExceptionType)
     {
         byte[] jsonBytes = Encoding.UTF8.GetBytes(json);
         byte[] pointerBytes = Encoding.UTF8.GetBytes(pointer);
