@@ -27,7 +27,28 @@ public abstract class JsonModel<T> : IJsonModel<T>, IJsonModel
         }
     }
 
-    protected abstract bool TryGetPropertyType(ReadOnlySpan<byte> name, out Type? type);
+    // this can be overriden to avoid reflection or when properties are renamed
+    protected virtual bool TryGetPropertyType(ReadOnlySpan<byte> name, out Type? type)
+    {
+        Type modelType = GetType();
+
+        Span<byte> upperCased = stackalloc byte[name.Length];
+        name.CopyTo(upperCased);
+        char upper = Char.ToUpper((char)name[0]);
+        upperCased[0] = (byte)upper;
+        string propertyName = Encoding.UTF8.GetString(upperCased);
+
+        var propertyInfo = modelType.GetProperty(propertyName);
+        
+        if (propertyInfo != null)
+        {
+            type = propertyInfo.PropertyType;
+            return true;
+        }   
+        type = null;
+        return false;
+    }
+
     protected abstract bool TryGetProperty(ReadOnlySpan<byte> name, out object? value);
     protected abstract bool TrySetProperty(ReadOnlySpan<byte> name, object value);
     protected abstract void WriteCore(Utf8JsonWriter writer, ModelReaderWriterOptions options);

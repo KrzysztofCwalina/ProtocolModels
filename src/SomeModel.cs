@@ -11,14 +11,14 @@ public class SomeModel : JsonModel<SomeModel>
     #region Additional Properties "Reflection" APIs.
 
     // do we need this method or reflection is fine?
-    protected override bool TryGetPropertyType(ReadOnlySpan<byte> name, out Type? type)
-    {
-        type = null;
-        if (name.SequenceEqual("category"u8)) type = typeof(string);
-        else if (name.SequenceEqual("names"u8)) type = typeof(string[]);
-        else if (name.SequenceEqual("numbers"u8)) type = typeof(double[]);
-        return type != null;
-    }
+    //protected override bool TryGetPropertyType(ReadOnlySpan<byte> name, out Type? type)
+    //{
+    //    type = null;
+    //    if (name.SequenceEqual("category"u8)) type = typeof(string);
+    //    else if (name.SequenceEqual("names"u8)) type = typeof(string[]);
+    //    else if (name.SequenceEqual("numbers"u8)) type = typeof(double[]);
+    //    return type != null;
+    //}
 
     protected override bool TryGetProperty(ReadOnlySpan<byte> name, out object? value)
     {
