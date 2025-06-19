@@ -26,6 +26,8 @@ public static class JsonPointer
 
     public static ReadOnlySpan<byte> GetUtf8(this BinaryData json, ReadOnlySpan<byte> pointer)
         => json.Find(pointer).ValueSpan;
+    public static ReadOnlySpan<byte> GetUtf8(this ReadOnlySpan<byte> json, ReadOnlySpan<byte> pointer)
+        => json.Find(pointer).ValueSpan;
 
     public static int GetInt32(this BinaryData json, ReadOnlySpan<byte> pointer)
         => json.Find(pointer).GetInt32();
@@ -78,6 +80,23 @@ public static class JsonPointer
             if (reader.TokenType == JsonTokenType.Number)
             {
                 doubles.Add(reader.GetDouble());
+            }
+        }
+        return doubles.ToArray();
+    }
+
+    public static int[] GetInt32Array(this ReadOnlySpan<byte> json, ReadOnlySpan<byte> pointer)
+    {
+        var reader = json.Find(pointer);
+        if (reader.TokenType != JsonTokenType.StartArray)
+            return Array.Empty<int>();
+
+        var doubles = new List<int>();
+        while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
+        {
+            if (reader.TokenType == JsonTokenType.Number)
+            {
+                doubles.Add(reader.GetInt32());
             }
         }
         return doubles.ToArray();

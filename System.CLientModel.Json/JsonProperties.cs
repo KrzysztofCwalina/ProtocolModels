@@ -2,10 +2,11 @@
 using System.Diagnostics;
 using System.Text.Json;
 
+// this is a datastructure for efficiently storing JSON properties
 internal struct JsonProperties
 {
     Property[] _properties;
-    int _count;
+    int _count; // TODO: we could optimize it to store the count in the first property
 
     public void Set(ReadOnlySpan<byte> name, ReadOnlySpan<byte> value)
     {

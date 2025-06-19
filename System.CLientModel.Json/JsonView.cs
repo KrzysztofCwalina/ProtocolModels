@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Text;
 using System.Text.Json;
 
+// this type is a wrapper over IJsonModel that provides a nice API for accessing and modifying JSON properties.
 public readonly struct JsonView
 {
     private readonly IJsonModel _model;
