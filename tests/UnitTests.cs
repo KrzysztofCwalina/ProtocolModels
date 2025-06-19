@@ -8,7 +8,7 @@ public class ModelAdditionalPropertiesTests
     [Test]
     public void SmokeTests()
     {
-        InputModel input = new();
+        SomeModel input = new();
         input.Category = "number facts";
         input.Numbers = [42, 3.14];
         input.Names = ["my first building", "PI"];
@@ -32,7 +32,7 @@ public class ModelAdditionalPropertiesTests
     [Test]
     public void ArrayTests()
     {
-        InputModel input = new();
+        SomeModel input = new();
         
         // First create arrays using the regular Set method
         input.Json.Set("numbers"u8, "[1.0, 2.0, 3.0]"u8);
@@ -68,7 +68,7 @@ public class ModelAdditionalPropertiesTests
     
     [Test]
     public void SerializationTests() {
-        InputModel input = new();
+        SomeModel input = new();
         input.Names = ["my first building", "PI"];
 
         input["category"] = "facts";

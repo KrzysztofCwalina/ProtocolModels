@@ -2,9 +2,9 @@
 using System.Text;
 using System.Text.Json;
 
-public class InputModel : JsonModel<InputModel>
+public class SomeModel : JsonModel<SomeModel>
 {
-    public string Category { get; set; }
+    public string Category { get; set; } = String.Empty;
     public string[] Names { get; set; } = Array.Empty<string>();
     public double[] Numbers { get; set; } = Array.Empty<double>();
 
@@ -64,7 +64,7 @@ public class InputModel : JsonModel<InputModel>
     #endregion
 
     #region implementation of IJsonModel<T>
-    protected override InputModel CreateCore(ref Utf8JsonReader reader, ModelReaderWriterOptions options)
+    protected override SomeModel CreateCore(ref Utf8JsonReader reader, ModelReaderWriterOptions options)
     {
         JsonDocument doc = JsonDocument.ParseValue(ref reader);
         JsonElement root = doc.RootElement;
