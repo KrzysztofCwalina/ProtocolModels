@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text;
 using System.Diagnostics;
 using System.Buffers.Text;
+using System.Runtime.InteropServices;
 
 // TODO (pri 0): implement arrays, e.g. "/addresses/0/street"u8
 // TODO (pri 1): implement object graphs, e.g "/address/street"u8
@@ -195,6 +196,211 @@ public static class JsonPointer
             }
         }
         return ints.ToArray();
+    }
+
+    public static ReadOnlyMemory<byte>[]? GetUtf8Array(this BinaryData json, ReadOnlySpan<byte> pointer)
+    {
+        var memory = json.ToMemory();
+        var reader = memory.Span.Find(pointer);
+        if (reader.TokenType != JsonTokenType.StartArray)
+            return Array.Empty<ReadOnlyMemory<byte>>();
+        
+        // For BinaryData, try to create slices from the original memory
+        var segments = new List<(int Offset, int Length)>();
+        byte[] sourceArray = null;
+        int baseOffset = 0;
+        
+        // Get the underlying array and offset if possible
+        if (MemoryMarshal.TryGetArray(memory, out var arraySegment))
+        {
+            sourceArray = arraySegment.Array;
+            baseOffset = arraySegment.Offset;
+        }
+        
+        while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
+        {
+            if (reader.TokenType == JsonTokenType.String)
+            {
+                var valueSpan = reader.ValueSpan;
+                if (sourceArray != null)
+                {
+                    // Calculate offset of valueSpan within the original memory
+                    unsafe
+                    {
+                        fixed (byte* memoryPtr = memory.Span)
+                        fixed (byte* valuePtr = valueSpan)
+                        {
+                            int offset = (int)(valuePtr - memoryPtr) + baseOffset;
+                            segments.Add((offset, valueSpan.Length));
+                        }
+                    }
+                }
+            }
+        }
+        
+        if (sourceArray != null)
+        {
+            // Create ReadOnlyMemory<byte> instances from the same source array
+            var result = new ReadOnlyMemory<byte>[segments.Count];
+            for (int i = 0; i < segments.Count; i++)
+            {
+                result[i] = new ReadOnlyMemory<byte>(sourceArray, segments[i].Offset, segments[i].Length);
+            }
+            return result;
+        }
+        else
+        {
+            // Fallback: create a new array and copy segments
+            var segmentData = new List<byte[]>();
+            var reader2 = memory.Span.Find(pointer);
+            while (reader2.Read() && reader2.TokenType != JsonTokenType.EndArray)
+            {
+                if (reader2.TokenType == JsonTokenType.String)
+                {
+                    segmentData.Add(reader2.ValueSpan.ToArray());
+                }
+            }
+            return CreateMemoryArrayFromByteArrays(segmentData);
+        }
+    }
+    public static ReadOnlyMemory<byte>[]? GetUtf8Array(this ReadOnlySpan<byte> json, ReadOnlySpan<byte> pointer)
+    {
+        var reader = json.Find(pointer);
+        if (reader.TokenType != JsonTokenType.StartArray)
+            return Array.Empty<ReadOnlyMemory<byte>>();
+        
+        // For span-based input, we need to create a single buffer and copy all segments
+        var segmentData = new List<byte[]>();
+        while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
+        {
+            if (reader.TokenType == JsonTokenType.String)
+            {
+                segmentData.Add(reader.ValueSpan.ToArray());
+            }
+        }
+        
+        return CreateMemoryArrayFromByteArrays(segmentData);
+    }
+    public static ReadOnlyMemory<byte>[]? GetUtf8Array(this BinaryData json)
+    {
+        var memory = json.ToMemory();
+        var reader = new Utf8JsonReader(memory.Span);
+        bool success = reader.Read();
+        Debug.Assert(success, "JSON must be valid UTF-8 and parseable as JSON");
+        
+        if (reader.TokenType != JsonTokenType.StartArray)
+            return Array.Empty<ReadOnlyMemory<byte>>();
+        
+        // For BinaryData, try to create slices from the original memory
+        var segments = new List<(int Offset, int Length)>();
+        byte[] sourceArray = null;
+        int baseOffset = 0;
+        
+        // Get the underlying array and offset if possible
+        if (MemoryMarshal.TryGetArray(memory, out var arraySegment))
+        {
+            sourceArray = arraySegment.Array;
+            baseOffset = arraySegment.Offset;
+        }
+        
+        while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
+        {
+            if (reader.TokenType == JsonTokenType.String)
+            {
+                var valueSpan = reader.ValueSpan;
+                if (sourceArray != null)
+                {
+                    // Calculate offset of valueSpan within the original memory
+                    unsafe
+                    {
+                        fixed (byte* memoryPtr = memory.Span)
+                        fixed (byte* valuePtr = valueSpan)
+                        {
+                            int offset = (int)(valuePtr - memoryPtr) + baseOffset;
+                            segments.Add((offset, valueSpan.Length));
+                        }
+                    }
+                }
+            }
+        }
+        
+        if (sourceArray != null)
+        {
+            // Create ReadOnlyMemory<byte> instances from the same source array
+            var result = new ReadOnlyMemory<byte>[segments.Count];
+            for (int i = 0; i < segments.Count; i++)
+            {
+                result[i] = new ReadOnlyMemory<byte>(sourceArray, segments[i].Offset, segments[i].Length);
+            }
+            return result;
+        }
+        else
+        {
+            // Fallback: create a new array and copy segments
+            var segmentData = new List<byte[]>();
+            var reader2 = new Utf8JsonReader(memory.Span);
+            reader2.Read();
+            while (reader2.Read() && reader2.TokenType != JsonTokenType.EndArray)
+            {
+                if (reader2.TokenType == JsonTokenType.String)
+                {
+                    segmentData.Add(reader2.ValueSpan.ToArray());
+                }
+            }
+            return CreateMemoryArrayFromByteArrays(segmentData);
+        }
+    }
+    public static ReadOnlyMemory<byte>[]? GetUtf8Array(this ReadOnlySpan<byte> json)
+    {
+        var reader = new Utf8JsonReader(json);
+        bool success = reader.Read();
+        Debug.Assert(success, "JSON must be valid UTF-8 and parseable as JSON");
+        
+        if (reader.TokenType != JsonTokenType.StartArray)
+            return Array.Empty<ReadOnlyMemory<byte>>();
+        
+        // For span-based input, we need to create a single buffer and copy all segments
+        var segmentData = new List<byte[]>();
+        while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
+        {
+            if (reader.TokenType == JsonTokenType.String)
+            {
+                segmentData.Add(reader.ValueSpan.ToArray());
+            }
+        }
+        
+        return CreateMemoryArrayFromByteArrays(segmentData);
+    }
+
+    private static ReadOnlyMemory<byte>[] CreateMemoryArrayFromByteArrays(List<byte[]> segments)
+    {
+        if (segments.Count == 0)
+            return Array.Empty<ReadOnlyMemory<byte>>();
+        
+        // Calculate total size needed
+        int totalSize = 0;
+        foreach (var segment in segments)
+        {
+            totalSize += segment.Length;
+        }
+        
+        // Allocate single array
+        byte[] buffer = new byte[totalSize];
+        var result = new ReadOnlyMemory<byte>[segments.Count];
+        
+        int currentOffset = 0;
+        for (int i = 0; i < segments.Count; i++)
+        {
+            // Copy segment to buffer
+            segments[i].CopyTo(buffer, currentOffset);
+            
+            // Create ReadOnlyMemory slice from the same buffer
+            result[i] = new ReadOnlyMemory<byte>(buffer, currentOffset, segments[i].Length);
+            
+            currentOffset += segments[i].Length;
+        }
+        
+        return result;
     }
 
     internal static Utf8JsonReader Find(this ReadOnlySpan<byte> json, ReadOnlySpan<byte> pointer)

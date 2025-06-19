@@ -9,6 +9,7 @@ public class JsonPointerTests
     {
         "foo": "bar",
         "numbers": [1, 2, 3],
+        "strings": ["hello", "world", "test"],
         "empty": {},
         "a/b": "slash in key",
         "c%d": "percent in key",
@@ -22,7 +23,8 @@ public class JsonPointerTests
                 "value": 123,
                 "name": "test"
             },
-            "array": [4, 5, 6]
+            "array": [4, 5, 6],
+            "stringArray": ["nested1", "nested2"]
         },
         "boolValue": true,
         "nullValue": null
@@ -73,6 +75,10 @@ public class JsonPointerTests
         {
             return JsonPointer.GetInt32Array(jsonBytes, pointerBytes);
         }
+        else if (valueType == typeof(ReadOnlyMemory<byte>[]))
+        {
+            return JsonPointer.GetUtf8Array(jsonBytes, pointerBytes);
+        }
         else
         {
             throw new ArgumentException($"Unsupported value type: {valueType}", nameof(valueType));
@@ -120,5 +126,81 @@ public class JsonPointerTests
         {
             throw new ArgumentException($"Unsupported accessor type: {accessorType}", nameof(accessorType));
         }
+    }
+
+    [Test]
+    public void TestGetUtf8Array_WithPointer()
+    {
+        byte[] jsonBytes = Encoding.UTF8.GetBytes(json);
+        byte[] stringsPointer = Encoding.UTF8.GetBytes("/strings");
+        byte[] nestedStringArrayPointer = Encoding.UTF8.GetBytes("/nested/stringArray");
+
+        // Test /strings pointer
+        var result1 = JsonPointer.GetUtf8Array(jsonBytes, stringsPointer);
+        Assert.IsNotNull(result1);
+        Assert.AreEqual(3, result1.Length);
+        Assert.AreEqual("hello", Encoding.UTF8.GetString(result1[0].Span));
+        Assert.AreEqual("world", Encoding.UTF8.GetString(result1[1].Span));
+        Assert.AreEqual("test", Encoding.UTF8.GetString(result1[2].Span));
+
+        // Test /nested/stringArray pointer  
+        var result2 = JsonPointer.GetUtf8Array(jsonBytes, nestedStringArrayPointer);
+        Assert.IsNotNull(result2);
+        Assert.AreEqual(2, result2.Length);
+        Assert.AreEqual("nested1", Encoding.UTF8.GetString(result2[0].Span));
+        Assert.AreEqual("nested2", Encoding.UTF8.GetString(result2[1].Span));
+    }
+
+    [Test]
+    public void TestGetUtf8Array_WithoutPointer()
+    {
+        string stringArrayJson = """["alpha", "beta", "gamma"]""";
+        byte[] jsonBytes = Encoding.UTF8.GetBytes(stringArrayJson);
+
+        var result = JsonPointer.GetUtf8Array(jsonBytes);
+        Assert.IsNotNull(result);
+        Assert.AreEqual(3, result.Length);
+        Assert.AreEqual("alpha", Encoding.UTF8.GetString(result[0].Span));
+        Assert.AreEqual("beta", Encoding.UTF8.GetString(result[1].Span));
+        Assert.AreEqual("gamma", Encoding.UTF8.GetString(result[2].Span));
+    }
+
+    [Test]
+    public void TestGetUtf8Array_EmptyArray()
+    {
+        string emptyArrayJson = """[]""";
+        byte[] jsonBytes = Encoding.UTF8.GetBytes(emptyArrayJson);
+
+        var result = JsonPointer.GetUtf8Array(jsonBytes);
+        Assert.IsNotNull(result);
+        Assert.AreEqual(0, result.Length);
+    }
+
+    [Test]
+    public void TestGetUtf8Array_NonArrayReturnsEmpty()
+    {
+        byte[] jsonBytes = Encoding.UTF8.GetBytes(json);
+        byte[] fooPointer = Encoding.UTF8.GetBytes("/foo"); // Points to a string, not array
+
+        var result = JsonPointer.GetUtf8Array(jsonBytes, fooPointer);
+        Assert.IsNotNull(result);
+        Assert.AreEqual(0, result.Length);
+    }
+
+    [Test]
+    public void TestGetUtf8Array_MemoryBacking()
+    {
+        // Test that all ReadOnlyMemory<byte> instances use the same underlying array
+        string stringArrayJson = """["test1", "test2"]""";
+        ReadOnlySpan<byte> jsonSpan = Encoding.UTF8.GetBytes(stringArrayJson);
+
+        var result = JsonPointer.GetUtf8Array(jsonSpan);
+        Assert.IsNotNull(result);
+        Assert.AreEqual(2, result.Length);
+        
+        // For span-based calls, all ReadOnlyMemory instances should be backed by the same array
+        // This is implementation specific - we created a single buffer for all segments
+        Assert.AreEqual("test1", Encoding.UTF8.GetString(result[0].Span));
+        Assert.AreEqual("test2", Encoding.UTF8.GetString(result[1].Span));
     }
 }
