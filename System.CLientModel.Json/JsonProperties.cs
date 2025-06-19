@@ -1,6 +1,5 @@
 ﻿using System.ClientModel.Primitives;
 using System.Diagnostics;
-using System.Text.Encodings.Web;
 using System.Text.Json;
 
 internal struct JsonProperties

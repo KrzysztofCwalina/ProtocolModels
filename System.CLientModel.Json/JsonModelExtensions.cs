@@ -4,14 +4,7 @@
 /// </summary>
 internal static class JsonModelExtensions
 {
-    public static ReadOnlySpan<byte> Get(this IJsonModel model, string name)
-    {
-        ReadOnlySpan<byte> nameBytes = Encoding.UTF8.GetBytes(name);
-        if (!model.TryGet(nameBytes, out ReadOnlySpan<byte> value))
-            throw new KeyNotFoundException($"Property '{name}' not found");
-        return value;
-    }
-
+    // TODO: can this be eliminated?
     public static ReadOnlySpan<byte> Get(this IJsonModel model, ReadOnlySpan<byte> name)
     {
         if (!model.TryGet(name, out ReadOnlySpan<byte> value))
@@ -22,22 +15,14 @@ internal static class JsonModelExtensions
         return value;
     }
 
-    public static ReadOnlySpan<byte> Get(this JsonProperties properties, string name)
+    public static string ToClrPropertyName(this ReadOnlySpan<byte> jsonName)
     {
-        ReadOnlySpan<byte> nameBytes = Encoding.UTF8.GetBytes(name);
-        if (!properties.TryGet(nameBytes, out ReadOnlySpan<byte> value))
-            throw new KeyNotFoundException($"Property '{name}' not found");
-        return value;
-    }
-
-    public static ReadOnlySpan<byte> Get(this JsonProperties properties, ReadOnlySpan<byte> name)
-    {
-        if (!properties.TryGet(name, out ReadOnlySpan<byte> value))
-        {
-            // Only convert to string for the exception message
-            throw new KeyNotFoundException($"Property not found");
-        }
-        return value;
+        Span<byte> upperCased = stackalloc byte[jsonName.Length];
+        jsonName.CopyTo(upperCased);
+        char upper = Char.ToUpper((char)jsonName[0]);
+        upperCased[0] = (byte)upper;
+        string clrName = Encoding.UTF8.GetString(upperCased);
+        return clrName;
     }
 }
 

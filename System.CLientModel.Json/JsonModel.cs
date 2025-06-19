@@ -31,26 +31,47 @@ public abstract class JsonModel<T> : IJsonModel<T>, IJsonModel
     protected virtual bool TryGetPropertyType(ReadOnlySpan<byte> name, out Type? type)
     {
         Type modelType = GetType();
+        string clrProperty = name.ToClrPropertyName();
+        var propertyInfo = modelType.GetProperty(clrProperty);
 
-        Span<byte> upperCased = stackalloc byte[name.Length];
-        name.CopyTo(upperCased);
-        char upper = Char.ToUpper((char)name[0]);
-        upperCased[0] = (byte)upper;
-        string propertyName = Encoding.UTF8.GetString(upperCased);
-
-        var propertyInfo = modelType.GetProperty(propertyName);
-        
         if (propertyInfo != null)
         {
             type = propertyInfo.PropertyType;
             return true;
-        }   
+        }
         type = null;
         return false;
     }
+    protected virtual bool TryGetProperty(ReadOnlySpan<byte> name, out object? value)
+    {
+        Type modelType = GetType();
+        string clrProperty = name.ToClrPropertyName();
+        var propertyInfo = modelType.GetProperty(clrProperty);
 
-    protected abstract bool TryGetProperty(ReadOnlySpan<byte> name, out object? value);
-    protected abstract bool TrySetProperty(ReadOnlySpan<byte> name, object value);
+        if (propertyInfo != null)
+        {
+            value = propertyInfo.GetValue(this, null);
+            return true;
+        }
+        value = null;
+        return false;
+    }
+    protected virtual bool TrySetProperty(ReadOnlySpan<byte> name, object value)
+    {
+        Type modelType = GetType();
+        string clrProperty = name.ToClrPropertyName();
+        var propertyInfo = modelType.GetProperty(clrProperty);
+
+        if (propertyInfo != null)
+        {
+            propertyInfo.SetValue(this, value);
+            return true;
+        }
+        Json.Set(name, value);
+        return true;
+    }
+
+    #region IJsonModel implementations
     protected abstract void WriteCore(Utf8JsonWriter writer, ModelReaderWriterOptions options);
     protected abstract T CreateCore(ref Utf8JsonReader reader, ModelReaderWriterOptions options);
 
@@ -123,6 +144,7 @@ public abstract class JsonModel<T> : IJsonModel<T>, IJsonModel
 
     protected void WriteAdditionalProperties(Utf8JsonWriter writer, ModelReaderWriterOptions options)
         => additionalProperties.Write(writer, options);
+    #endregion
 
     private void SetRealProperty(ReadOnlySpan<byte> name, ReadOnlySpan<byte> json)
     {
@@ -233,7 +255,6 @@ public abstract class JsonModel<T> : IJsonModel<T>, IJsonModel
         ReadOnlyMemory<byte> memory = buffer.AsMemory(0, (int)stream.Position);
         return new BinaryData(memory);
     }
-
     #endregion
 }
 

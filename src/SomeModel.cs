@@ -19,50 +19,48 @@ public class SomeModel : JsonModel<SomeModel>
     //    else if (name.SequenceEqual("numbers"u8)) type = typeof(double[]);
     //    return type != null;
     //}
+    //protected override bool TryGetProperty(ReadOnlySpan<byte> name, out object? value)
+    //{
+    //    if(name.SequenceEqual("category"u8))
+    //    {
+    //        value = Category;
+    //        return true;
+    //    }
+    //    if(name.SequenceEqual("names"u8))
+    //    {
+    //        value = Names;
+    //        return true;
+    //    }
+    //    if(name.SequenceEqual("numbers"u8))
+    //    {
+    //        value = Numbers;
+    //        return true;
+    //    }
+    //    value = default;
+    //    return false;
+    //}
+    //protected override bool TrySetProperty(ReadOnlySpan<byte> name, object value)
+    //{
+    //    if(name.SequenceEqual("category"u8) && value is string category)
+    //    {
+    //        Category = category;
+    //        return true;
+    //    }
+    //    if(name.SequenceEqual("names"u8) && value is string[] names)
+    //    {
+    //        Names = names;
+    //        return true;
+    //    }
+    //    if(name.SequenceEqual("numbers"u8) && value is double[] numbers)
+    //    {
+    //        Numbers = numbers;
+    //        return true;
+    //    }
 
-    protected override bool TryGetProperty(ReadOnlySpan<byte> name, out object? value)
-    {
-        if(name.SequenceEqual("category"u8))
-        {
-            value = Category;
-            return true;
-        }
-        if(name.SequenceEqual("names"u8))
-        {
-            value = Names;
-            return true;
-        }
-        if(name.SequenceEqual("numbers"u8))
-        {
-            value = Numbers;
-            return true;
-        }
-        value = default;
-        return false;
-    }
+    //    Json.Set(name, value);
 
-    protected override bool TrySetProperty(ReadOnlySpan<byte> name, object value)
-    {
-        if(name.SequenceEqual("category"u8) && value is string category)
-        {
-            Category = category;
-            return true;
-        }
-        if(name.SequenceEqual("names"u8) && value is string[] names)
-        {
-            Names = names;
-            return true;
-        }
-        if(name.SequenceEqual("numbers"u8) && value is double[] numbers)
-        {
-            Numbers = numbers;
-            return true;
-        }
-
-        Json.Set(name, value);
-
-        return true;
-    }
+    //    return true;
+    //}
     #endregion
 
     #region implementation of IJsonModel<T>
