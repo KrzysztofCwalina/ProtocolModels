@@ -8,62 +8,6 @@ public class SomeModel : JsonModel<SomeModel>
     public string[] Names { get; set; } = Array.Empty<string>();
     public double[] Numbers { get; set; } = Array.Empty<double>();
 
-    #region Additional Properties "Reflection" APIs.
-
-    // do we need this method or reflection is fine?
-    //protected override bool TryGetPropertyType(ReadOnlySpan<byte> name, out Type? type)
-    //{
-    //    type = null;
-    //    if (name.SequenceEqual("category"u8)) type = typeof(string);
-    //    else if (name.SequenceEqual("names"u8)) type = typeof(string[]);
-    //    else if (name.SequenceEqual("numbers"u8)) type = typeof(double[]);
-    //    return type != null;
-    //}
-    //protected override bool TryGetProperty(ReadOnlySpan<byte> name, out object? value)
-    //{
-    //    if(name.SequenceEqual("category"u8))
-    //    {
-    //        value = Category;
-    //        return true;
-    //    }
-    //    if(name.SequenceEqual("names"u8))
-    //    {
-    //        value = Names;
-    //        return true;
-    //    }
-    //    if(name.SequenceEqual("numbers"u8))
-    //    {
-    //        value = Numbers;
-    //        return true;
-    //    }
-    //    value = default;
-    //    return false;
-    //}
-    //protected override bool TrySetProperty(ReadOnlySpan<byte> name, object value)
-    //{
-    //    if(name.SequenceEqual("category"u8) && value is string category)
-    //    {
-    //        Category = category;
-    //        return true;
-    //    }
-    //    if(name.SequenceEqual("names"u8) && value is string[] names)
-    //    {
-    //        Names = names;
-    //        return true;
-    //    }
-    //    if(name.SequenceEqual("numbers"u8) && value is double[] numbers)
-    //    {
-    //        Numbers = numbers;
-    //        return true;
-    //    }
-
-    //    Json.Set(name, value);
-
-    //    return true;
-    //}
-    #endregion
-
-    #region implementation of IJsonModel<T>
     protected override SomeModel CreateCore(ref Utf8JsonReader reader, ModelReaderWriterOptions options)
     {
         // TODO: dont use JsonDocument, use JsonReader directly
@@ -104,7 +48,6 @@ public class SomeModel : JsonModel<SomeModel>
         return model; // change this to return the created model instead of 'this'
     }
 
-    // implementation of IJsonModel<T>
     protected override void WriteCore(Utf8JsonWriter writer, ModelReaderWriterOptions options)
     {
         writer.WriteStartObject();
@@ -128,5 +71,4 @@ public class SomeModel : JsonModel<SomeModel>
 
         writer.WriteEndObject();    
     }
-    #endregion
 }
