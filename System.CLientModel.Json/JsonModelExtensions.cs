@@ -24,7 +24,8 @@ internal static class JsonModelExtensions
 
     public static ReadOnlySpan<byte> Get(this JsonProperties properties, string name)
     {
-        if (!properties.TryGet(name, out ReadOnlySpan<byte> value))
+        ReadOnlySpan<byte> nameBytes = Encoding.UTF8.GetBytes(name);
+        if (!properties.TryGet(nameBytes, out ReadOnlySpan<byte> value))
             throw new KeyNotFoundException($"Property '{name}' not found");
         return value;
     }

@@ -1,44 +1,129 @@
 ﻿using System.ClientModel.Primitives;
-using System.Text;
+using System.Diagnostics;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 
 internal struct JsonProperties
 {
-    private Dictionary<string, ReadOnlyMemory<byte>> _properties;
-    public void Set(string name, ReadOnlySpan<byte> value)
+    Property[] _properties;
+    int _count;
+
+    public void Set(ReadOnlySpan<byte> name, ReadOnlySpan<byte> value)
+    {
+        if (name.IsEmpty)
+            throw new ArgumentException("Property name cannot be empty", nameof(name));
+
+        // Check if the property already exists and update it if found
+        for (int i = 0; i < _count; i++)
+        {
+            if (_properties[i].EqualsName(name))
+            {
+                _properties[i] = new Property(name, value);
+                return;
+            }
+        }
+
+        EnsureCapacity();
+        _properties[_count++] = new Property(name, value);
+    }
+
+    private void EnsureCapacity()
     {
         if (_properties == null)
-            _properties = new Dictionary<string, ReadOnlyMemory<byte>>();
-        _properties[name] = value.ToArray();
-    }
-    public void Set(ReadOnlySpan<byte> name, ReadOnlySpan<byte> value)
-        => Set(Encoding.UTF8.GetString(name), value);
-    public bool TryGet(string name, out ReadOnlySpan<byte> value)
-    {
-        ReadOnlyMemory<byte> memory = default;
-        if (_properties != null && _properties.TryGetValue(name, out memory))
         {
-            value = memory.Span;
-            return true;
+            _properties = new Property[1];
         }
-        value = default;
-        return false;
+        else if (_count == _properties.Length)
+        {
+            Array.Resize(ref _properties, _properties.Length * 2);
+        }
     }
+
     public bool TryGet(ReadOnlySpan<byte> name, out ReadOnlySpan<byte> value)
     {
-        string strName = Encoding.UTF8.GetString(name);
-        return TryGet(strName, out value);
+        value = default;
+        
+        if (_properties == null || _count == 0)
+            return false;
+
+        // Search for the property by name
+        for (int i = 0; i < _count; i++)
+        {
+            if (_properties[i].EqualsName(name))
+            {
+                value = _properties[i].Value;
+                return true;
+            }
+        }
+
+        return false;
     }
 
     internal void Write(Utf8JsonWriter writer, ModelReaderWriterOptions options)
     {
-        if (_properties != null)
+        if (_properties == null || _count == 0)
+            return;
+
+        for (int i = 0; i < _count; i++)
         {
-            foreach (var kvp in _properties)
+            _properties[i].Write(writer, options);
+        }
+    }
+
+    internal readonly struct Property
+    {
+        private readonly byte[] _buffer;
+        private readonly int _valueOffset;
+        
+        public ReadOnlySpan<byte> Name 
+        { 
+            get 
             {
-                writer.WritePropertyName(kvp.Key);
-                writer.WriteRawValue(kvp.Value.Span, true); // true to escape the value
+                Debug.Assert(_buffer != null);
+                return _buffer.AsSpan(0, _valueOffset);
             }
+        }
+        
+        public ReadOnlySpan<byte> Value 
+        { 
+            get 
+            {
+                Debug.Assert(_buffer != null);
+                return _buffer.AsSpan(_valueOffset);
+            }
+        }
+        
+        public Property(ReadOnlySpan<byte> name, ReadOnlySpan<byte> value)
+        {
+            if (name.IsEmpty)
+                throw new ArgumentException("Property name cannot be empty", nameof(name));
+
+            _buffer = new byte[name.Length + value.Length];
+            _valueOffset = name.Length;
+            
+            name.CopyTo(_buffer);
+            value.CopyTo(_buffer.AsSpan(_valueOffset));
+        }
+
+        public bool EqualsName(ReadOnlySpan<byte> name)
+        {
+            Debug.Assert(_buffer != null);
+            
+            if (_valueOffset <= 0)
+                return false;
+
+            return Name.SequenceEqual(name);
+        }
+
+        public void Write(Utf8JsonWriter writer, ModelReaderWriterOptions options)
+        {
+            Debug.Assert(_buffer != null);
+            
+            if (_buffer == null || _buffer.Length == 0)
+                return;
+            
+            writer.WritePropertyName(Name);
+            writer.WriteRawValue(Value);
         }
     }
 }

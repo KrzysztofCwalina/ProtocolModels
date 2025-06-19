@@ -83,7 +83,7 @@ public static class JsonPointer
         return doubles.ToArray();
     }
 
-    private static Utf8JsonReader Find(this ReadOnlySpan<byte> json, ReadOnlySpan<byte> pointer)
+    internal static Utf8JsonReader Find(this ReadOnlySpan<byte> json, ReadOnlySpan<byte> pointer)
     {
         if (json.Length == 0) throw new ArgumentException("JSON document cannot be empty", nameof(json));
 
@@ -99,10 +99,10 @@ public static class JsonPointer
         return Find(reader, pointer);
     }
 
-    private static Utf8JsonReader Find(this BinaryData json, ReadOnlySpan<byte> pointer)
+    internal static Utf8JsonReader Find(this BinaryData json, ReadOnlySpan<byte> pointer)
     => json.ToMemory().Span.Find(pointer);
 
-    private static Utf8JsonReader Find(Utf8JsonReader reader, ReadOnlySpan<byte> pointer)
+    internal static Utf8JsonReader Find(Utf8JsonReader reader, ReadOnlySpan<byte> pointer)
     {
         string propertyName = Encoding.UTF8.GetString(pointer);
         if (pointer.Length == 0) return reader;
@@ -128,7 +128,7 @@ public static class JsonPointer
         return Find(reader, remainingPointer);
     }
 
-    private static Utf8JsonReader FindPropertyValue(Utf8JsonReader reader, ReadOnlySpan<byte> propertyName)
+    internal static Utf8JsonReader FindPropertyValue(Utf8JsonReader reader, ReadOnlySpan<byte> propertyName)
     {
         string pn = Encoding.UTF8.GetString(propertyName);
         while (reader.Read())
@@ -144,7 +144,7 @@ public static class JsonPointer
         throw new KeyNotFoundException($"{Encoding.UTF8.GetString(propertyName)} not found in JSON document");
     }
 
-    private static Utf8JsonReader FindArrayItem(Utf8JsonReader reader, ReadOnlySpan<byte> pointer)
+    internal static Utf8JsonReader FindArrayItem(Utf8JsonReader reader, ReadOnlySpan<byte> pointer)
     {
         string indexString = Encoding.UTF8.GetString(pointer);
         if (!Utf8Parser.TryParse(pointer, out int index, out _))
