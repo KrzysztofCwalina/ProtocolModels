@@ -28,7 +28,7 @@ public abstract class JsonModel<T> : IJsonModel<T>, IJsonModel
     }
 
     protected abstract bool TryGetPropertyType(ReadOnlySpan<byte> name, out Type? type);
-    protected abstract bool TryGetProperty(ReadOnlySpan<byte> name, out object value);
+    protected abstract bool TryGetProperty(ReadOnlySpan<byte> name, out object? value);
     protected abstract bool TrySetProperty(ReadOnlySpan<byte> name, object value);
     protected abstract void WriteCore(Utf8JsonWriter writer, ModelReaderWriterOptions options);
     protected abstract T CreateCore(ref Utf8JsonReader reader, ModelReaderWriterOptions options);

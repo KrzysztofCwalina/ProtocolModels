@@ -9,6 +9,8 @@ public class SomeModel : JsonModel<SomeModel>
     public double[] Numbers { get; set; } = Array.Empty<double>();
 
     #region Additional Properties "Reflection" APIs.
+
+    // do we need this method or reflection is fine?
     protected override bool TryGetPropertyType(ReadOnlySpan<byte> name, out Type? type)
     {
         type = null;
@@ -18,7 +20,7 @@ public class SomeModel : JsonModel<SomeModel>
         return type != null;
     }
 
-    protected override bool TryGetProperty(ReadOnlySpan<byte> name, out object value)
+    protected override bool TryGetProperty(ReadOnlySpan<byte> name, out object? value)
     {
         if(name.SequenceEqual("category"u8))
         {
@@ -66,13 +68,15 @@ public class SomeModel : JsonModel<SomeModel>
     #region implementation of IJsonModel<T>
     protected override SomeModel CreateCore(ref Utf8JsonReader reader, ModelReaderWriterOptions options)
     {
+        // TODO: dont use JsonDocument, use JsonReader directly
         JsonDocument doc = JsonDocument.ParseValue(ref reader);
         JsonElement root = doc.RootElement;
+        SomeModel model = new();
         foreach (var property in root.EnumerateObject())
         {
             if (property.NameEquals("category"))
             {
-                Category = property.Value.GetString() ?? string.Empty;
+                model.Category = property.Value.GetString() ?? string.Empty;
             }
             else if (property.NameEquals("names"))
             {
@@ -81,7 +85,7 @@ public class SomeModel : JsonModel<SomeModel>
                 {
                     namesList.Add(item.GetString() ?? string.Empty);
                 }
-                Names = namesList.ToArray();
+                model.Names = namesList.ToArray();
             }
             else if (property.NameEquals("numbers"))
             {
@@ -90,16 +94,16 @@ public class SomeModel : JsonModel<SomeModel>
                 {
                     numbersList.Add(item.GetDouble());
                 }
-                Numbers = numbersList.ToArray();
+                model.Numbers = numbersList.ToArray();
             }
             else
             {
                 byte[] nameBytes = Encoding.UTF8.GetBytes(property.Name);
                 byte[] valueBytes = Encoding.UTF8.GetBytes(property.Value.GetRawText());
-                Json.Set(nameBytes, (ReadOnlySpan<byte>)valueBytes);
+                model.Json.Set(nameBytes, (ReadOnlySpan<byte>)valueBytes);
             }
         }
-        return this;
+        return model; // change this to return the created model instead of 'this'
     }
 
     // implementation of IJsonModel<T>
