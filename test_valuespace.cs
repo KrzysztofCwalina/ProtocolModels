@@ -1,1 +1,0 @@
-using System.Text.Json; using System.Text; var json = """["hello"]"""; var reader = new Utf8JsonReader(Encoding.UTF8.GetBytes(json)); reader.Read(); reader.Read(); Console.WriteLine($"ValueSpan: {Encoding.UTF8.GetString(reader.ValueSpan)}"); Console.WriteLine($"GetString: {reader.GetString()}");
