@@ -4,13 +4,8 @@ using System.Text.Json;
 using System.Text;
 using System.Diagnostics;
 using System.Buffers.Text;
-using System.Buffers;
-using System.Runtime.InteropServices;
 
-// TODO (pri 0): implement arrays, e.g. "/addresses/0/street"u8
-// TODO (pri 1): implement object graphs, e.g "/address/street"u8
-// TODO (pri 1): support null values for all types
-// TODO (pri 1): make sure JSON escaping works
+
 // TODO (pri 3): make sure JSON Pointer escaping works, e.g. "/a~/b"u8 finds property "a/b"
 public static partial class JsonPointer
 {
@@ -77,6 +72,30 @@ public static partial class JsonPointer
         Utf8JsonReader reader = new(json);
         bool success = reader.Read();
         return reader.GetBoolean();
+    }
+
+    public static int GetArrayLength(ReadOnlyMemory<byte> memory, ReadOnlySpan<byte> pointer = default)
+    {
+        var reader = pointer.IsEmpty ? new Utf8JsonReader(memory.Span) : memory.Span.Find(pointer);
+
+        if (pointer.IsEmpty)
+        {
+            bool success = reader.Read();
+            Debug.Assert(success, "JSON must be valid UTF-8 and parseable as JSON");
+        }
+
+        if (reader.TokenType != JsonTokenType.StartArray)
+            throw new InvalidOperationException("JSON value is not an array");
+
+        int count = 0;
+        while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
+        {
+            if (reader.TokenType == JsonTokenType.String)
+            {
+                count++;
+            }
+        }
+        return count;
     }
 
     public static string[]? GetStringArray(this BinaryData json, ReadOnlySpan<byte> pointer)
@@ -198,8 +217,6 @@ public static partial class JsonPointer
         }
         return ints.ToArray();
     }
-
-
 
     internal static Utf8JsonReader Find(this ReadOnlySpan<byte> json, ReadOnlySpan<byte> pointer)
     {
