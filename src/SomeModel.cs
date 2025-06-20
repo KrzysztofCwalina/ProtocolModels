@@ -14,22 +14,22 @@ public class SomeModel : JsonModel<SomeModel>
         JsonDocument doc = JsonDocument.ParseValue(ref reader);
         JsonElement root = doc.RootElement;
         SomeModel model = new();
-        foreach (var property in root.EnumerateObject())
+        foreach (JsonProperty property in root.EnumerateObject())
         {
-            if (property.NameEquals("category"))
+            if (property.NameEquals("category"u8))
             {
-                model.Category = property.Value.GetString() ?? string.Empty;
+                model.Category = property.Value.GetString();
             }
-            else if (property.NameEquals("names"))
+            else if (property.NameEquals("names"u8))
             {
                 List<string> namesList = new List<string>();
                 foreach (var item in property.Value.EnumerateArray())
                 {
-                    namesList.Add(item.GetString() ?? string.Empty);
+                    namesList.Add(item.GetString());
                 }
                 model.Names = namesList.ToArray();
             }
-            else if (property.NameEquals("numbers"))
+            else if (property.NameEquals("numbers"u8))
             {
                 List<double> numbersList = new List<double>();
                 foreach (var item in property.Value.EnumerateArray())
@@ -51,15 +51,15 @@ public class SomeModel : JsonModel<SomeModel>
     protected override void WriteCore(Utf8JsonWriter writer, ModelReaderWriterOptions options)
     {
         writer.WriteStartObject();
-        writer.WriteString("category", Category);
-        writer.WritePropertyName("names");
+        writer.WriteString("category"u8, Category);
+        writer.WritePropertyName("names"u8);
         writer.WriteStartArray();
         foreach (var name in Names)
         {
             writer.WriteStringValue(name);
         }
         writer.WriteEndArray();
-        writer.WritePropertyName("numbers");
+        writer.WritePropertyName("numbers"u8);
         writer.WriteStartArray();
         foreach (var number in Numbers)
         {
