@@ -1,10 +1,11 @@
 ﻿using System.ClientModel.Primitives;
-using System.Text;
 using System.Text.Json;
 
 public class SomeModel : JsonModel<SomeModel>
 {
     public string Category { get; set; } = String.Empty;
+    public int Id { get; set; } = 0;
+
     public string[] Names { get; set; } = Array.Empty<string>();
     public double[] Numbers { get; set; } = Array.Empty<double>();
 
@@ -16,6 +17,13 @@ public class SomeModel : JsonModel<SomeModel>
         foreach (JsonProperty property in root.EnumerateObject())
         {
             if (property.NameEquals("category"u8)) model.Category = property.Value.GetString();
+            if (property.NameEquals("id"u8)) model.Id = property.Value.GetInt32();
+            else if (property.NameEquals("category"u8)) {
+                model.Category = property.Value.GetString() ?? String.Empty;
+            }
+            else if (property.NameEquals("id"u8)) {
+                model.Id = property.Value.GetInt32();
+            }
             else if (property.NameEquals("names"u8)) {
                 model.Names = property.Value.Deserialize<string[]>();
             }
@@ -35,6 +43,7 @@ public class SomeModel : JsonModel<SomeModel>
     {
         writer.WriteStartObject();
         writer.WriteString("category"u8, Category);
+        writer.WriteNumber("id"u8, Id);
         writer.WritePropertyName("names"u8);
         writer.WriteStartArray();
         foreach (var name in Names)
