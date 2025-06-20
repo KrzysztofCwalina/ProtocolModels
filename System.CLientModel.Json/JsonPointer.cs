@@ -4,13 +4,15 @@ using System.Text.Json;
 using System.Text;
 using System.Diagnostics;
 using System.Buffers.Text;
+using System.Buffers;
+using System.Runtime.InteropServices;
 
 // TODO (pri 0): implement arrays, e.g. "/addresses/0/street"u8
 // TODO (pri 1): implement object graphs, e.g "/address/street"u8
 // TODO (pri 1): support null values for all types
 // TODO (pri 1): make sure JSON escaping works
 // TODO (pri 3): make sure JSON Pointer escaping works, e.g. "/a~/b"u8 finds property "a/b"
-public static class JsonPointer
+public static partial class JsonPointer
 {
     public static ReadOnlySpan<byte> GetUtf8(this BinaryData json, ReadOnlySpan<byte> pointer)
     => json.Find(pointer).ValueSpan;
@@ -196,6 +198,8 @@ public static class JsonPointer
         }
         return ints.ToArray();
     }
+
+
 
     internal static Utf8JsonReader Find(this ReadOnlySpan<byte> json, ReadOnlySpan<byte> pointer)
     {
