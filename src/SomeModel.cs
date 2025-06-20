@@ -10,39 +10,22 @@ public class SomeModel : JsonModel<SomeModel>
 
     protected override SomeModel CreateCore(ref Utf8JsonReader reader, ModelReaderWriterOptions options)
     {
-        // TODO: dont use JsonDocument, use JsonReader directly
         JsonDocument doc = JsonDocument.ParseValue(ref reader);
         JsonElement root = doc.RootElement;
         SomeModel model = new();
         foreach (JsonProperty property in root.EnumerateObject())
         {
-            if (property.NameEquals("category"u8))
-            {
-                model.Category = property.Value.GetString();
-            }
-            else if (property.NameEquals("names"u8))
-            {
-                List<string> namesList = new List<string>();
-                foreach (var item in property.Value.EnumerateArray())
-                {
-                    namesList.Add(item.GetString());
-                }
-                model.Names = namesList.ToArray();
+            if (property.NameEquals("category"u8)) model.Category = property.Value.GetString();
+            else if (property.NameEquals("names"u8)) {
+                model.Names = property.Value.Deserialize<string[]>();
             }
             else if (property.NameEquals("numbers"u8))
             {
-                List<double> numbersList = new List<double>();
-                foreach (var item in property.Value.EnumerateArray())
-                {
-                    numbersList.Add(item.GetDouble());
-                }
-                model.Numbers = numbersList.ToArray();
+                model.Numbers = property.Value.Deserialize<double[]>();
             }
             else
             {
-                byte[] nameBytes = Encoding.UTF8.GetBytes(property.Name);
-                byte[] valueBytes = Encoding.UTF8.GetBytes(property.Value.GetRawText());
-                model.Json.Set(nameBytes, (ReadOnlySpan<byte>)valueBytes);
+                ReadAdditionalProperty(model.Json, property);
             }
         }
         return model; // change this to return the created model instead of 'this'

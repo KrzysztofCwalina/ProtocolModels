@@ -85,5 +85,17 @@ public class ModelAdditionalPropertiesTests
         Assert.That(json.GetString("/names/0"u8), Is.EqualTo(input.Names[0]));
         Assert.That(json.GetString("/names/1"u8), Is.EqualTo(input.Names[1]));
         Assert.That(json.GetDouble("/temperature"u8), Is.EqualTo(90d));
+
+        SomeModel deserialized = ModelReaderWriter.Read<SomeModel>(json);
+
+        Assert.That(deserialized.Category, Is.EqualTo(input.Category));
+        Assert.That(deserialized.Numbers, Is.EqualTo(input.Numbers));
+        Assert.That(deserialized.Names, Is.EqualTo(input.Names));
+        Assert.That(deserialized.Json.GetDouble("complex/value"u8), Is.EqualTo(100));
+        Assert.That(deserialized.Json.GetDouble("temperature"u8), Is.EqualTo(90d));
+        Assert.That(deserialized.Json.GetString("category"u8), Is.EqualTo("facts"));
+        Assert.That(deserialized.Json.GetArray<double>("numbers"u8), Is.EqualTo(new double[] { 3.14, 7d }));
+        Assert.That(deserialized.Json.GetArray<string>("names"u8), Is.EqualTo(new string[] { "my first building", "PI" }));
+        Assert.That(deserialized.Json.GetString("complex/name"u8), Is.EqualTo("foo"));
     }
 }

@@ -146,6 +146,13 @@ public abstract class JsonModel<T> : IJsonModel<T>, IJsonModel
         => additionalProperties.Write(writer, options);
     #endregion
 
+    protected static void ReadAdditionalProperty(JsonView model, JsonProperty property)
+    {
+        byte[] nameBytes = Encoding.UTF8.GetBytes(property.Name);
+        byte[] valueBytes = Encoding.UTF8.GetBytes(property.Value.GetRawText());
+        model.Set(nameBytes, (ReadOnlySpan<byte>)valueBytes);
+    }
+
     private void SetRealProperty(ReadOnlySpan<byte> name, ReadOnlySpan<byte> json)
     {
         if (!TryGetPropertyType(name, out Type? ptype)){
