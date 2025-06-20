@@ -179,4 +179,4 @@ artifacts
 TempTypeSpecFiles/
 
 # Common toolchain intermediate files
-temp
+temptest_valuespace.cs
