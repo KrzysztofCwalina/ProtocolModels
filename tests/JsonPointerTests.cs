@@ -177,14 +177,12 @@ public class JsonPointerTests
     }
 
     [Test]
-    public void TestGetUtf8Array_NonArrayReturnsEmpty()
+    public void TestGetUtf8Array_NonArrayThrows()
     {
         byte[] jsonBytes = Encoding.UTF8.GetBytes(json);
         byte[] fooPointer = Encoding.UTF8.GetBytes("/foo"); // Points to a string, not array
 
-        var result = JsonPointer.GetUtf8Array(jsonBytes, fooPointer);
-        Assert.IsNotNull(result);
-        Assert.AreEqual(0, result.Length);
+        Assert.Throws<InvalidOperationException>(() => JsonPointer.GetUtf8Array(jsonBytes, fooPointer));
     }
 
     [Test]
