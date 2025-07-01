@@ -103,8 +103,23 @@ public class ModelAdditionalPropertiesTests
     public void PropertyTypeMismatch()
     {
         SomeModel model = new();
+        string guidString = Guid.NewGuid().ToString();
 
-        model.Json.Set("id"u8, Guid.NewGuid().ToString()); // TODO: this throws. It cannot or it's a breaking change.
-        //Assert.Throws(typeof(ArgumentException), () => { int id = model.Id; }, "cannot read string as int");
+        // 1. Setting a string value to an int property via the Json API should succeed
+        model.Json.Set("id"u8, guidString);
+        
+        // 2. The CLR property should remain unchanged (default value)
+        Assert.That(model.Id, Is.EqualTo(0), "CLR property should maintain its default value");
+        
+        // 3. But we should be able to access the value via the JSON API
+        Assert.That(model.Json.GetString("id"u8), Is.EqualTo(guidString), "JSON property should contain the string value");
+        
+        // 4. Test that we can serialize and deserialize the model with the type mismatch
+        BinaryData serialized = ModelReaderWriter.Write(model);
+        SomeModel deserialized = ModelReaderWriter.Read<SomeModel>(serialized);
+        
+        // Check that the deserialized model preserved the type mismatch properly
+        Assert.That(deserialized.Id, Is.EqualTo(0), "Deserialized CLR property should maintain its default value");
+        Assert.That(deserialized.Json.GetString("id"u8), Is.EqualTo(guidString), "Deserialized JSON property should contain the string value");
     }
 }

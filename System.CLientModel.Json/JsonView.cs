@@ -7,13 +7,13 @@ using System.Text.Json;
 // this type is a wrapper over IJsonModel that provides a nice API for accessing and modifying JSON properties.
 public readonly struct JsonView
 {
-    private readonly IJsonModel _model;
+    private readonly IExtensibleModel _model;
     private readonly byte[] _path;
 
-    internal JsonView(IJsonModel model) : this(model, Array.Empty<byte>())
+    internal JsonView(IExtensibleModel model) : this(model, Array.Empty<byte>())
     {}
 
-    private JsonView(IJsonModel model, byte[] path)
+    private JsonView(IExtensibleModel model, byte[] path)
     {
         _model = model;
         _path = path;

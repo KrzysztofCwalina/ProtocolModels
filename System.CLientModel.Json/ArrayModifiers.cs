@@ -4,7 +4,7 @@ using System.Text.Json;
 
 internal static class ArrayModifiers
 {
-    public static void SetArrayItem<T>(IJsonModel model, ReadOnlySpan<byte> propertyName, ReadOnlySpan<byte> indexText, T value)
+    public static void SetArrayItem<T>(IExtensibleModel model, ReadOnlySpan<byte> propertyName, ReadOnlySpan<byte> indexText, T value)
     {
         if (!Utf8Parser.TryParse(indexText, out int index, out _))
         {
@@ -37,7 +37,7 @@ internal static class ArrayModifiers
         }
     }
 
-    private static void ModifyInt32Array(IJsonModel model, ReadOnlySpan<byte> arrayProperty, ReadOnlySpan<byte> currentJson, int index, int newValue)
+    private static void ModifyInt32Array(IExtensibleModel model, ReadOnlySpan<byte> arrayProperty, ReadOnlySpan<byte> currentJson, int index, int newValue)
     {
         var reader = new Utf8JsonReader(currentJson);
         if (!reader.Read() || reader.TokenType != JsonTokenType.StartArray)
@@ -79,7 +79,7 @@ internal static class ArrayModifiers
         model.Set(arrayProperty, arrayJson);
     }
 
-    private static void ModifyFloatArray(IJsonModel model, ReadOnlySpan<byte> arrayProperty, ReadOnlySpan<byte> currentJson, int index, float newValue)
+    private static void ModifyFloatArray(IExtensibleModel model, ReadOnlySpan<byte> arrayProperty, ReadOnlySpan<byte> currentJson, int index, float newValue)
     {
         var reader = new Utf8JsonReader(currentJson);
         if (!reader.Read() || reader.TokenType != JsonTokenType.StartArray)
@@ -121,7 +121,7 @@ internal static class ArrayModifiers
         model.Set(arrayProperty, arrayJson);
     }
 
-    private static void ModifyStringArray(IJsonModel model, ReadOnlySpan<byte> arrayProperty, ReadOnlySpan<byte> currentJson, int index, string newValue)
+    private static void ModifyStringArray(IExtensibleModel model, ReadOnlySpan<byte> arrayProperty, ReadOnlySpan<byte> currentJson, int index, string newValue)
     {
         var reader = new Utf8JsonReader(currentJson);
         if (!reader.Read() || reader.TokenType != JsonTokenType.StartArray)
@@ -163,7 +163,7 @@ internal static class ArrayModifiers
         model.Set(arrayProperty, arrayJson);
     }
 
-    private static void ModifyDoubleArray(IJsonModel model, ReadOnlySpan<byte> arrayProperty, ReadOnlySpan<byte> currentJson, int index, double newValue)
+    private static void ModifyDoubleArray(IExtensibleModel model, ReadOnlySpan<byte> arrayProperty, ReadOnlySpan<byte> currentJson, int index, double newValue)
     {
         var reader = new Utf8JsonReader(currentJson);
         if (!reader.Read() || reader.TokenType != JsonTokenType.StartArray)

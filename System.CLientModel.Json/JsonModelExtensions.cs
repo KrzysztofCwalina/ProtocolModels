@@ -5,7 +5,7 @@
 internal static class JsonModelExtensions
 {
     // TODO: can this be eliminated?
-    public static ReadOnlySpan<byte> Get(this IJsonModel model, ReadOnlySpan<byte> name)
+    public static ReadOnlySpan<byte> Get(this IExtensibleModel model, ReadOnlySpan<byte> name)
     {
         if (!model.TryGet(name, out ReadOnlySpan<byte> value))
         {

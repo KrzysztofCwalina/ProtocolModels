@@ -1,7 +1,7 @@
 ﻿using System.ClientModel.Primitives;
 using System.Text.Json;
 
-public class SomeModel : JsonModel<SomeModel>
+public class SomeModel : ExtensibleModel<SomeModel>
 {
     public string Category { get; set; } = String.Empty;
     public int Id { get; set; } = 0;

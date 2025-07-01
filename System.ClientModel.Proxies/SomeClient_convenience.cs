@@ -26,16 +26,16 @@ public partial class SomeClient
     }
 }
 
-public class ConvenienceSomeModel : JsonModel<ConvenienceSomeModel>
+public class ConvenienceSomeModel : ExtensibleModel<ConvenienceSomeModel>
 {
     public string Id { get; set; } = string.Empty;
 
-    protected override bool TryGetProperty(ReadOnlySpan<byte> name, out object value)
+    protected override bool TryGetClrProperty(ReadOnlySpan<byte> name, out object value)
     {
         throw new NotImplementedException();
     }
 
-    protected override bool TrySetProperty(ReadOnlySpan<byte> name, object value)
+    protected override bool TrySetClrProperty(ReadOnlySpan<byte> name, object value)
     {
         throw new NotImplementedException();
     }
@@ -50,7 +50,7 @@ public class ConvenienceSomeModel : JsonModel<ConvenienceSomeModel>
         throw new NotImplementedException();
     }
 
-    protected override bool TryGetPropertyType(ReadOnlySpan<byte> name, out Type? type)
+    protected override bool TryGetClrPropertyType(ReadOnlySpan<byte> name, out Type? type)
     {
         throw new NotImplementedException();
     }

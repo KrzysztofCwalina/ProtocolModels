@@ -27,6 +27,12 @@ internal struct JsonProperties
         _properties[_count++] = new Property(name, value);
     }
 
+    public void Set(ReadOnlySpan<byte> name, object value)
+    {
+        ReadOnlyMemory<byte> valueBytes = value.ToJson();
+        Set(name, valueBytes.Span);
+    }
+
     private void EnsureCapacity()
     {
         if (_properties == null)
