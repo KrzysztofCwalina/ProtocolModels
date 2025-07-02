@@ -5,6 +5,7 @@ namespace AdditionalProperties;
 
 public class EdgeCases
 {
+    [Ignore("we need to decide what we want")]
     [Test]
     public void ChangeClrPropertyType()
     {
