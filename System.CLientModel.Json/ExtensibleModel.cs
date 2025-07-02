@@ -139,7 +139,7 @@ public abstract class ExtensibleModel<T> : JsonModel<T>, IExtensibleModel
                 return false; // the property exists, but the types are not compatible
             }
         }
-        throw new ArgumentException($"Property '{Encoding.UTF8.GetString(name)}' does not exist or is not assignable.", nameof(name));
+        return false;
     }
     #endregion
     #region CONVENIENCE
