@@ -1,10 +1,9 @@
 ﻿// JSON Pointer: https://www.rfc-editor.org/rfc/rfc6901
 
-using System.Text.Json;
-using System.Text;
 using System.Diagnostics;
 using System.Buffers.Text;
 
+namespace System.Text.Json;
 
 // TODO (pri 3): make sure JSON Pointer escaping works, e.g. "/a~/b"u8 finds property "a/b"
 public static partial class JsonPointer

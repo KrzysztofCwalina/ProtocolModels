@@ -2,6 +2,9 @@ using System.Buffers.Text;
 using System.Text;
 using System.Text.Json;
 
+namespace System.ClientModel.Primitives;
+
+// TODO: this file needs to be cleaned up. It was AI coded
 internal static class ArrayModifiers
 {
     public static void SetArrayItem<T>(IExtensibleModel model, ReadOnlySpan<byte> propertyName, ReadOnlySpan<byte> indexText, T value)

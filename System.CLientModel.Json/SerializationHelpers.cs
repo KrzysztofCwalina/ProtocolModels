@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿
+namespace System.Text.Json;
 
 // TODO: maybe instead of this whole file we can use JsonSerializer or ModelReaderWriter (after additions)
 internal static class SerializationHelpers

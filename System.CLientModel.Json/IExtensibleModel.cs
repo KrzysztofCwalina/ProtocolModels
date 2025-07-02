@@ -1,4 +1,6 @@
-﻿// it's internal, so we can modify it later
+﻿namespace System.ClientModel.Primitives;
+
+// it's internal, so we can modify it later
 internal interface IExtensibleModel
 {
     bool TryGet(ReadOnlySpan<byte> name, out ReadOnlySpan<byte> value);

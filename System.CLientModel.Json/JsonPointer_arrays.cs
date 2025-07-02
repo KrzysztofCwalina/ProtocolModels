@@ -4,6 +4,8 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 
+namespace System.Text.Json;
+
 // TODO: do the UTF8 strings need to be unescaped?
 public static partial class JsonPointer
 {

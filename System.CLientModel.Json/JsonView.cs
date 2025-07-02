@@ -1,8 +1,8 @@
-﻿using System.Buffers.Text;
-using System.ClientModel.Primitives;
-using System.ComponentModel;
+﻿using System.ClientModel.Primitives;
 using System.Text;
 using System.Text.Json;
+
+namespace System.ClientModel;
 
 // this type is a wrapper over IJsonModel that provides a nice API for accessing and modifying JSON properties.
 public readonly struct JsonView
@@ -221,9 +221,7 @@ public readonly struct JsonView
 
     // Internal Get methods that throw exceptions directly
     private ReadOnlySpan<byte> GetPropertyValue(ReadOnlySpan<byte> name)
-    {
-        return _model.Get(name);
-    }
+        => _model.Get(name);
     
     // get spillover (or real?) property or array value
     public bool TryGet(string name, out ReadOnlySpan<byte> value)

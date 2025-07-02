@@ -1,7 +1,8 @@
 ﻿using System.Text;
-/// <summary>
-/// Extension methods for IJsonModel
-/// </summary>
+
+namespace System.ClientModel.Primitives;
+
+
 internal static class JsonModelExtensions
 {
     // TODO: can this be eliminated?

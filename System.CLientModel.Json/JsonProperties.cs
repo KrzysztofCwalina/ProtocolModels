@@ -3,6 +3,8 @@ using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 
+namespace System.ClientModel.Primitives;
+
 // this is a datastructure for efficiently storing JSON properties
 internal struct JsonProperties
 {

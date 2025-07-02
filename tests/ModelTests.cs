@@ -1,6 +1,7 @@
 ﻿using NUnit.Framework;
 using System;
 using System.ClientModel.Primitives;
+using System.Text.Json;
 
 namespace AdditionalProperties;
 

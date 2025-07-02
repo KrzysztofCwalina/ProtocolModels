@@ -1,8 +1,10 @@
-﻿using System.ClientModel.Primitives;
-using System.Reflection;
+﻿using System.Reflection;
 using System.Text;
 using System.Text.Json;
 
+namespace System.ClientModel.Primitives;
+
+// TODO: will this work for AOT?
 public abstract class ExtensibleModel<T> : JsonModel<T>, IExtensibleModel
 {
     private JsonProperties additionalProperties = new();
