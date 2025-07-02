@@ -1,7 +1,8 @@
 ﻿using System.ClientModel.Primitives;
 using System.Text.Json;
-// TOOD: what do we do with struct models?
 
+// TOOD: we should validate that we can just implement the interfaces on a struct to get additional properties support
+// TODO: maybe we should merge JsonModel<T> and ExtensibleModel<T> into one class
 public abstract class JsonModel<T> : IJsonModel<T>, IPersistableModel<T>
 {
     protected abstract void WriteCore(Utf8JsonWriter writer, ModelReaderWriterOptions options);

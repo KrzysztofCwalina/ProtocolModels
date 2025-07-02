@@ -3,6 +3,8 @@ using System;
 using System.Text;
 using System.Collections.Generic;
 
+namespace AdditionalProperties;
+
 public class JsonPointerTests
 {
     const string json = """

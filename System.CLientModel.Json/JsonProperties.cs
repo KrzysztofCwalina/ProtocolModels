@@ -1,5 +1,6 @@
 ﻿using System.ClientModel.Primitives;
 using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
 
 // this is a datastructure for efficiently storing JSON properties
@@ -76,6 +77,20 @@ internal struct JsonProperties
         }
     }
 
+    public override string ToString()
+    {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < _count; i++)
+        {
+            if (i > 0) sb.AppendLine(",");
+            sb.Append(_properties[i].ToString());
+        }
+        if (_count > 0)
+            sb.AppendLine();
+        return sb.ToString();
+
+    }
+
     internal readonly struct Property
     {
         private readonly byte[] _buffer;
@@ -131,6 +146,9 @@ internal struct JsonProperties
             writer.WritePropertyName(Name);
             writer.WriteRawValue(Value);
         }
+
+        public override string ToString()
+            => $"{Encoding.UTF8.GetString(_buffer, 0, _valueOffset)} = {Encoding.UTF8.GetString(_buffer, _valueOffset, _buffer.Length - _valueOffset)}" ;
     }
 }
 
