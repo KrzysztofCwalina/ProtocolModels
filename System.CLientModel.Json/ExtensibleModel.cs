@@ -76,6 +76,8 @@ public abstract class ExtensibleModel<T> : JsonModel<T>, IExtensibleModel
     // the following two methods are used by IJsonModel<T> implemetnations to write and read additional properties
     protected void WriteAdditionalProperties(Utf8JsonWriter writer, ModelReaderWriterOptions options)
     => additionalProperties.Write(writer, options);
+    protected bool ContainsAdditionalProperty(ReadOnlySpan<byte> name)
+        => additionalProperties.Contains(name);
     protected static void ReadAdditionalProperty(JsonView model, JsonProperty property)
     {
         byte[] nameBytes = Encoding.UTF8.GetBytes(property.Name);

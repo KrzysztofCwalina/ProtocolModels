@@ -16,15 +16,43 @@ public class SomeModel : ExtensibleModel<SomeModel>
         SomeModel model = new();
         foreach (JsonProperty property in root.EnumerateObject())
         {
-            if (property.NameEquals("category"u8)) model.Category = property.Value.GetString();
-            if (property.NameEquals("id"u8)) model.Id = property.Value.GetInt32();
-            else if (property.NameEquals("category"u8)) {
+            if (property.NameEquals("category"u8))
+            {
+                if (property.Value.ValueKind == JsonValueKind.String)
+                {
+                    model.Category = property.Value.GetString() ?? String.Empty;
+                }
+                else if (property.Value.ValueKind == JsonValueKind.Null)
+                {
+                    model.Category = null;
+                }
+                else
+                {
+                    Json.Set("category"u8, property.Value.GetRawText());
+                }
+            }
+            if (property.NameEquals("id"u8))
+            {
+                if (property.Value.ValueKind == JsonValueKind.Number)
+                {
+                    // TODO: this needs to handle number not being an int32
+                    model.Id = property.Value.GetInt32();
+                }
+                else
+                {
+                    Json.Set("id"u8, property.Value.GetRawText());
+                }
+            }
+            else if (property.NameEquals("category"u8))
+            {
                 model.Category = property.Value.GetString() ?? String.Empty;
             }
-            else if (property.NameEquals("id"u8)) {
+            else if (property.NameEquals("id"u8))
+            {
                 model.Id = property.Value.GetInt32();
             }
-            else if (property.NameEquals("names"u8)) {
+            else if (property.NameEquals("names"u8))
+            {
                 model.Names = property.Value.Deserialize<string[]>();
             }
             else if (property.NameEquals("numbers"u8))
@@ -42,24 +70,33 @@ public class SomeModel : ExtensibleModel<SomeModel>
     protected override void WriteCore(Utf8JsonWriter writer, ModelReaderWriterOptions options)
     {
         writer.WriteStartObject();
-        writer.WriteString("category"u8, Category);
-        writer.WriteNumber("id"u8, Id);
-        writer.WritePropertyName("names"u8);
-        writer.WriteStartArray();
-        foreach (var name in Names)
-        {
-            writer.WriteStringValue(name);
+        if (!ContainsAdditionalProperty("category"u8)){
+            writer.WriteString("category"u8, Category);
         }
-        writer.WriteEndArray();
-        writer.WritePropertyName("numbers"u8);
-        writer.WriteStartArray();
-        foreach (var number in Numbers)
-        {
-            writer.WriteNumberValue(number);
+        if (!ContainsAdditionalProperty("id"u8)){
+            writer.WriteNumber("id"u8, Id);
         }
-        writer.WriteEndArray();
+        if (!ContainsAdditionalProperty("names"u8)){
+            writer.WritePropertyName("names"u8);
+            writer.WriteStartArray();
+            foreach (var name in Names)
+            {
+                writer.WriteStringValue(name);
+            }
+            writer.WriteEndArray();
+        }
+        if (!ContainsAdditionalProperty("numbers"u8))
+        {
+            writer.WritePropertyName("numbers"u8);
+            writer.WriteStartArray();
+            foreach (var number in Numbers)
+            {
+                writer.WriteNumberValue(number);
+            }
+            writer.WriteEndArray();
+        }
 
-        WriteAdditionalProperties(writer, options); 
+        WriteAdditionalProperties(writer, options);
 
         writer.WriteEndObject();    
     }

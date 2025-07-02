@@ -79,6 +79,21 @@ internal struct JsonProperties
         }
     }
 
+    internal bool Contains(ReadOnlySpan<byte> name)
+    {
+        if (_properties == null || _count == 0)
+            return false;
+        // Search for the property by name
+        for (int i = 0; i < _count; i++)
+        {
+            if (_properties[i].EqualsName(name))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public override string ToString()
     {
         StringBuilder sb = new StringBuilder();
