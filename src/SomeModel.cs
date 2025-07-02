@@ -40,7 +40,15 @@ public class SomeModel : ExtensibleModel<SomeModel>
                 }
                 else
                 {
-                    Json.Set("id"u8, property.Value.GetRawText());
+                    // Use GetString() for string values to avoid extra quotes, GetRawText() for other types
+                    if (property.Value.ValueKind == JsonValueKind.String)
+                    {
+                        model.Json.Set("id"u8, property.Value.GetString() ?? string.Empty);
+                    }
+                    else
+                    {
+                        model.Json.Set("id"u8, property.Value.GetRawText());
+                    }
                 }
             }
             else if (property.NameEquals("category"u8))

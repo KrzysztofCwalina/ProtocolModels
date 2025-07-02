@@ -31,7 +31,25 @@ public static partial class JsonPointer
     {
         Utf8JsonReader reader = new(json);
         bool success = reader.Read();
-        return reader.GetString();
+        
+        // Handle different token types for string conversion
+        switch (reader.TokenType)
+        {
+            case JsonTokenType.String:
+                return reader.GetString();
+            case JsonTokenType.Number:
+                // Convert number to string representation using ValueSpan
+                return System.Text.Encoding.UTF8.GetString(reader.ValueSpan);
+            case JsonTokenType.True:
+                return "true";
+            case JsonTokenType.False:
+                return "false";
+            case JsonTokenType.Null:
+                return null;
+            default:
+                // For complex types (objects, arrays), return raw JSON text
+                return System.Text.Encoding.UTF8.GetString(reader.ValueSpan);
+        }
     }
 
     public static int GetInt32(this BinaryData json, ReadOnlySpan<byte> pointer)
