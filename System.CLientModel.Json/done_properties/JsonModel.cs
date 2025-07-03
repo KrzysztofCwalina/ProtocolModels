@@ -2,7 +2,7 @@
 
 namespace System.ClientModel.Primitives;
 
-// TOOD: we should validate that we can just implement the interfaces on a struct to get additional properties support
+// TOOD: we should validate that we can just implement the interfaces on a struct to get additional properties support; this mean IJsonModel would have to be public
 // TODO: maybe we should merge JsonModel<T> and ExtensibleModel<T> into one class
 public abstract class JsonModel<T> : IJsonModel<T>, IPersistableModel<T>
 {
@@ -29,6 +29,7 @@ public abstract class JsonModel<T> : IJsonModel<T>, IPersistableModel<T>
         MemoryStream stream = new MemoryStream();
         Utf8JsonWriter writer = new Utf8JsonWriter(stream);
         WriteCore(writer, options);
+        writer.Flush();
         byte[] buffer = stream.GetBuffer();
         ReadOnlyMemory<byte> memory = buffer.AsMemory(0, (int)stream.Position);
         return new BinaryData(memory);

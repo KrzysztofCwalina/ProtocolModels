@@ -19,7 +19,7 @@ public class ModelAdditionalPropertiesTests
         model["category"] = "facts"; // changes CLR property
         model["numbers"] = new double[] { 3.14, 7 }; // changes CLR array property
         model["temperature"] = 90d; // adds JSON-only property
-        model["complex"u8] = """{ "name": "foo", "value": 100 }"""u8; // adds JSON-only property
+        model.Json.Set("complex"u8, """{ "name": "foo", "value": 100 }"""u8); // adds JSON-only property
 
         Assert.That(model.Category, Is.EqualTo("facts"));
         Assert.That(model.Numbers, Is.EqualTo(new double[] { 3.14, 7d }));
@@ -77,7 +77,7 @@ public class ModelAdditionalPropertiesTests
         original["category"] = "facts";
         original["numbers"] = new double[] { 3.14, 7 }; // changes CLR property
         original["temperature"] = 90d; // adds JSON-only property
-        original["complex"u8] = "{ \"name\": \"foo\", \"value\": 100 }"u8;
+        original.Json.Set("complex"u8, "{ \"name\": \"foo\", \"value\": 100 }"u8);
 
         // serialize
         BinaryData json = ModelReaderWriter.Write(original);

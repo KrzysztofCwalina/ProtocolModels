@@ -3,7 +3,7 @@ using System;
 
 namespace AdditionalProperties;
 
-public class EdgeCases
+public class SomeModelEdgeCases
 {
     [Ignore("we need to decide what we want")]
     [Test]
