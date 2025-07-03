@@ -148,6 +148,7 @@ public partial struct JsonProperties
 
     private readonly struct Property
     {
+        private const int NameOffset = 4;
         private readonly byte[] _buffer;
 
         private int ValueOffset
@@ -155,7 +156,7 @@ public partial struct JsonProperties
             get
             {
                 Debug.Assert(_buffer != null);
-                if (_buffer.Length == 4)
+                if (_buffer.Length == NameOffset)
                     return 0; // For count properties, buffer is exactly 4 bytes - no offset stored
                 return BinaryPrimitives.ReadInt32LittleEndian(_buffer);
             }
@@ -166,10 +167,10 @@ public partial struct JsonProperties
             get
             {
                 Debug.Assert(_buffer != null);
-                if (_buffer.Length == 4)
+                if (_buffer.Length == NameOffset)
                     return ReadOnlySpan<byte>.Empty; // Count properties have no name
                 int offset = ValueOffset;
-                return _buffer.AsSpan(4, offset - 4);
+                return _buffer.AsSpan(NameOffset, offset - NameOffset);
             }
         }
 
@@ -178,7 +179,7 @@ public partial struct JsonProperties
             get
             {
                 Debug.Assert(_buffer != null);
-                if (_buffer.Length == 4)
+                if (_buffer.Length == NameOffset)
                     return _buffer.AsSpan(); // Count properties - entire buffer is the value
                 int offset = ValueOffset;
                 return _buffer.AsSpan(offset);
@@ -190,15 +191,15 @@ public partial struct JsonProperties
             if (name.IsEmpty)
                 throw new ArgumentException("Property name cannot be empty", nameof(name));
 
-            // Allocate buffer with 4 bytes for offset + name + value
-            _buffer = new byte[4 + name.Length + value.Length];
-            int valueOffset = 4 + name.Length;
+            // Allocate buffer with NameOffset bytes for offset + name + value
+            _buffer = new byte[NameOffset + name.Length + value.Length];
+            int valueOffset = NameOffset + name.Length;
             
-            // Store the value offset in the first 4 bytes
+            // Store the value offset in the first NameOffset bytes
             BinaryPrimitives.WriteInt32LittleEndian(_buffer, valueOffset);
             
             // Copy name and value after the offset
-            name.CopyTo(_buffer.AsSpan(4));
+            name.CopyTo(_buffer.AsSpan(NameOffset));
             value.CopyTo(_buffer.AsSpan(valueOffset));
         }
         private Property(byte[] buffer)
@@ -210,7 +211,7 @@ public partial struct JsonProperties
         {
             Debug.Assert(_buffer != null);
 
-            if (_buffer.Length == 4)
+            if (_buffer.Length == NameOffset)
                 return false; // Count properties have no name
 
             return Name.SequenceEqual(name);
@@ -229,23 +230,23 @@ public partial struct JsonProperties
 
         public override string ToString()
         {
-            if (_buffer.Length == 4)
+            if (_buffer.Length == NameOffset)
             {
                 // Count property - entire buffer is the int32 value
                 return $"Count = {BinaryPrimitives.ReadInt32LittleEndian(_buffer)}";
             }
             else
             {
-                // Regular property - name starts at byte 4, value starts at offset
+                // Regular property - name starts at NameOffset, value starts at offset
                 int offset = ValueOffset;
-                return $"{Encoding.UTF8.GetString(_buffer, 4, offset - 4)} = {Encoding.UTF8.GetString(_buffer, offset, _buffer.Length - offset)}";
+                return $"{Encoding.UTF8.GetString(_buffer, NameOffset, offset - NameOffset)} = {Encoding.UTF8.GetString(_buffer, offset, _buffer.Length - offset)}";
             }
         }
 
         // the count property support
         internal static Property CreateInt32(int value)
         {
-            byte[] buffer = new byte[4];
+            byte[] buffer = new byte[NameOffset];
             BinaryPrimitives.WriteInt32LittleEndian(buffer, value);
             Property property = new(buffer);
             return property;
