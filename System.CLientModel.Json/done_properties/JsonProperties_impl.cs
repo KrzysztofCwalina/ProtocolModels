@@ -1,107 +1,102 @@
-﻿using System.Buffers.Binary;
-using System.ClientModel.Primitives;
+﻿using System.ClientModel.Primitives;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Text.Json;
 
 namespace System.ClientModel.Primitives;
 
 // this is a datastructure for efficiently storing JSON properties
-public partial struct JsonProperties
+public partial struct JsonPatch
 {
     // this is either null (empty) or the first property contains the count of properties (including count property)
-    private Property[] _properties;
+    private JsonPatchEntry[] _entries;
 
     public int Count => PrivateCount - 1;
 
-    [EditorBrowsable(EditorBrowsableState.Never)]
-    public void Set(ReadOnlySpan<byte> name, ReadOnlySpan<byte> json)
+    private int IndexOf(ReadOnlySpan<byte> name)
     {
-        if (name.IsEmpty)
-            throw new ArgumentException("Property name cannot be empty", nameof(name));
-
-        if (_properties == null)
-        {
-            _properties = new Property[2];
-            _properties[0] = Property.CreateInt32(2);
-            _properties[1] = new Property(name, json);
-            return;
-        }
-
+        if (_entries == null) return -1;
         int count = PrivateCount;
-        // Check if the property already exists and update it if found
-        for (int i = 1; i < count; i++)
-        {
-            if (_properties[i].EqualsName(name))
-            {
-                _properties[i] = new Property(name, json);
-                return;
-            }
-        }
-
-        EnsureCapacity();
-        count++;
-        PrivateCount = count;
-        _properties[count - 1] = new Property(name, json);
-    }
-
-    [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool TryGet(ReadOnlySpan<byte> name, out ReadOnlySpan<byte> json)
-    {
-        json = default;
-        
-        if (_properties == null) return false;
-
-        int count = PrivateCount;
-        // Search for the property by name
-        for (int i = 1; i < count; i++)
-        {
-            if (_properties[i].EqualsName(name))
-            {
-                json = _properties[i].Value;
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    [EditorBrowsable(EditorBrowsableState.Never)]
-    public bool Contains(ReadOnlySpan<byte> name)
-    {
-        if (_properties == null) return false;
-        int count = PrivateCount; 
         // Search for the property by name (skip index 0 which is the count property)
         for (int i = 1; i < count; i++)
         {
-            if (_properties[i].EqualsName(name))
+            if (_entries[i].EqualsName(name))
             {
-                return true;
+                return i;
             }
         }
-        return false;
+        return -1;
     }
+
+    private void Add(JsonPatchEntry entry)
+    {
+        if (_entries == null)
+        {
+            _entries = new JsonPatchEntry[2];
+            _entries[0] = new JsonPatchEntry("$count"u8, 2);
+            _entries[1] = entry;
+            return;
+        }
+        EnsureCapacity();
+        int count = PrivateCount;
+        PrivateCount = count + 1;
+        _entries[count] = entry;
+    }
+
+    private void Set(JsonPatchEntry entry)
+    {
+        ReadOnlyMemory<byte> name = entry.Name;
+        int index = IndexOf(name.Span);
+        if (index >= 0)
+        {
+            _entries[index] = entry;
+        }
+        else
+        {
+            Add(entry);
+        }
+    }
+
+    private JsonPatchEntry GetAt(int index)
+    {
+        return _entries[index];
+    }
+
+    private JsonPatchEntry Get(ReadOnlySpan<byte> name)
+    {
+        int index = IndexOf(name);
+        if (index < 0) ThrowPropertyNotFoundException(name);
+        return _entries[index];
+    }
+
+    public bool Contains(ReadOnlySpan<byte> name)
+        => IndexOf(name) >= 0;
 
     [EditorBrowsable(EditorBrowsableState.Never)]
     public void Write(Utf8JsonWriter writer)
     {
-        if (_properties == null) return;
+        if (_entries == null) return;
         int count = PrivateCount;
         for (int i = 1; i < count; i++)
         {
-            _properties[i].Write(writer);
+            JsonPatchEntry entry = _entries[i];
+            throw new NotImplementedException("Writing JSON patch entries is not implemented yet.");
         }
     }
 
     public override string ToString()
     {
+        // TODO: reimplement this in terms of Write method (above)
         StringBuilder sb = new StringBuilder();
         int count = PrivateCount;
         for (int i = 1; i < count; i++)
         {
             if (i > 0) sb.AppendLine(",");
-            sb.Append(_properties[i].ToString());
+            sb.Append(Encoding.UTF8.GetString(_entries[i].Name.Span));
+            sb.Append(": ");
+            sb.Append(Encoding.UTF8.GetString(_entries[i].Value.Span));
         }
         if (count > 0)
             sb.AppendLine();
@@ -111,18 +106,18 @@ public partial struct JsonProperties
 
     private void EnsureCapacity()
     {
-        if (_properties == null)
+        if (_entries == null)
         {
             Debug.Fail("this should never happen");
-            _properties = new Property[2];
-            _properties[0] = Property.CreateInt32(2);
+            _entries = new JsonPatchEntry[2];
+            _entries[0] = new JsonPatchEntry("$count"u8, 1);
             return;
         }
 
         int count = PrivateCount;
-        if (count == _properties.Length)
+        if (count == _entries.Length)
         {
-            Array.Resize(ref _properties, _properties.Length * 2);
+            Array.Resize(ref _entries, _entries.Length * 2);
         }
     }
 
@@ -130,137 +125,22 @@ public partial struct JsonProperties
     {
         get
         {
-            if (_properties == null) return 0;
-            return _properties[0].GetInt32();
+            if (_entries == null) return 0;
+            return _entries[0].GetInt32();
         }
         set
         {
-            Debug.Assert(_properties != null);
-            _properties[0].SetInt32(value);
+            Debug.Assert(_entries != null);
+            Debug.Assert(_entries[0].EqualsName("$count"u8));
+            _entries[0].Set(value);
         }
     }
 
     [Runtime.CompilerServices.MethodImpl(Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    [DoesNotReturn]
     private void ThrowPropertyNotFoundException(ReadOnlySpan<byte> name)
     {
         throw new KeyNotFoundException(Encoding.UTF8.GetString(name.ToArray()));
-    }
-
-    private readonly struct Property
-    {
-        private const int NameOffset = 4;
-        private readonly byte[] _buffer;
-
-        private int ValueOffset
-        {
-            get
-            {
-                Debug.Assert(_buffer != null);
-                if (_buffer.Length == NameOffset)
-                    return 0; // For count properties, buffer is exactly 4 bytes - no offset stored
-                return BinaryPrimitives.ReadInt32LittleEndian(_buffer);
-            }
-        }
-
-        internal ReadOnlySpan<byte> Name
-        {
-            get
-            {
-                Debug.Assert(_buffer != null);
-                if (_buffer.Length == NameOffset)
-                    return ReadOnlySpan<byte>.Empty; // Count properties have no name
-                int offset = ValueOffset;
-                return _buffer.AsSpan(NameOffset, offset - NameOffset);
-            }
-        }
-
-        internal ReadOnlySpan<byte> Value
-        {
-            get
-            {
-                Debug.Assert(_buffer != null);
-                if (_buffer.Length == NameOffset)
-                    return _buffer.AsSpan(); // Count properties - entire buffer is the value
-                int offset = ValueOffset;
-                return _buffer.AsSpan(offset);
-            }
-        }
-
-        internal Property(ReadOnlySpan<byte> name, ReadOnlySpan<byte> value)
-        {
-            if (name.IsEmpty)
-                throw new ArgumentException("Property name cannot be empty", nameof(name));
-
-            // Allocate buffer with NameOffset bytes for offset + name + value
-            _buffer = new byte[NameOffset + name.Length + value.Length];
-            int valueOffset = NameOffset + name.Length;
-            
-            // Store the value offset in the first NameOffset bytes
-            BinaryPrimitives.WriteInt32LittleEndian(_buffer, valueOffset);
-            
-            // Copy name and value after the offset
-            name.CopyTo(_buffer.AsSpan(NameOffset));
-            value.CopyTo(_buffer.AsSpan(valueOffset));
-        }
-        private Property(byte[] buffer)
-        {
-            _buffer = buffer;
-        }
-
-        internal bool EqualsName(ReadOnlySpan<byte> name)
-        {
-            Debug.Assert(_buffer != null);
-
-            if (_buffer.Length == NameOffset)
-                return false; // Count properties have no name
-
-            return Name.SequenceEqual(name);
-        }
-
-        internal void Write(Utf8JsonWriter writer)
-        {
-            Debug.Assert(_buffer != null);
-
-            if (_buffer == null || _buffer.Length == 0)
-                return;
-
-            writer.WritePropertyName(Name);
-            writer.WriteRawValue(Value);
-        }
-
-        public override string ToString()
-        {
-            if (_buffer.Length == NameOffset)
-            {
-                // Count property - entire buffer is the int32 value
-                return $"Count = {BinaryPrimitives.ReadInt32LittleEndian(_buffer)}";
-            }
-            else
-            {
-                // Regular property - name starts at NameOffset, value starts at offset
-                int offset = ValueOffset;
-                return $"{Encoding.UTF8.GetString(_buffer, NameOffset, offset - NameOffset)} = {Encoding.UTF8.GetString(_buffer, offset, _buffer.Length - offset)}";
-            }
-        }
-
-        // the count property support
-        internal static Property CreateInt32(int value)
-        {
-            byte[] buffer = new byte[NameOffset];
-            BinaryPrimitives.WriteInt32LittleEndian(buffer, value);
-            Property property = new(buffer);
-            return property;
-        }
-        internal void SetInt32(int value)
-        {
-            Debug.Assert(ValueOffset == 0);
-            BinaryPrimitives.WriteInt32LittleEndian(_buffer, value);
-        }
-        internal int GetInt32()
-        {
-            Debug.Assert(ValueOffset == 0);
-            return BinaryPrimitives.ReadInt32LittleEndian(_buffer);
-        }
     }
 }
 

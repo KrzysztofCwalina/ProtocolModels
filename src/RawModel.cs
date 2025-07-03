@@ -5,9 +5,9 @@ using System.Text.Json;
 
 public class RawModel: JsonModel<RawModel>
 {
-    private JsonProperties _extensions = new();
+    private JsonPatch _extensions = new();
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public ref JsonProperties Extensions => ref _extensions;
+    public ref JsonPatch Extensions => ref _extensions;
 
     public string? Category { get; set; }
     public int Id { get; set; } = 0;
@@ -113,7 +113,7 @@ public class RawModel: JsonModel<RawModel>
 public class SubModel
 {
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public JsonProperties __extensions { get; } = new();
+    public JsonPatch __extensions { get; } = new();
 
     public int Foo { get; set; } = 0;
     public string Bar { get; set; } = String.Empty;

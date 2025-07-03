@@ -7,7 +7,7 @@ namespace System.ClientModel.Primitives;
 // TODO: will this work for AOT?
 public abstract class ExtensibleModel<T> : JsonModel<T>, IExtensibleModel
 {
-    private JsonProperties additionalProperties = new();
+    private JsonPatch additionalProperties = new();
 
     // method to access and manipulate model properties (whether CLR or JSON)
 
@@ -15,8 +15,9 @@ public abstract class ExtensibleModel<T> : JsonModel<T>, IExtensibleModel
     protected bool TryGetClrOrJsonProperty(ReadOnlySpan<byte> name, out ReadOnlySpan<byte> json)
     {
         // if additional property exists, it's either trully additional or changed type
-        if (additionalProperties.TryGet(name, out json))
+        if (additionalProperties.Contains(name))
         {
+            json = additionalProperties.GetJson(name).ToMemory().Span;
             return true;
         }
 

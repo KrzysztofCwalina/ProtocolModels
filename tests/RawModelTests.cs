@@ -1,6 +1,5 @@
 ﻿using NUnit.Framework;
 using System;
-using System.Text;
 using System.Text.Json;
 
 namespace AdditionalProperties;
@@ -11,9 +10,8 @@ public class RawModelTests
     public void Smoke()
     {
         RawModel model = new();
-        model.Category = "number facts";
-        model.Extensions.Set("category"u8, JsonSerializer.Serialize(42));
-        string category = model.Extensions.GetString("category"u8);
+        model.Extensions.Set("category"u8, 42);
+        int category = model.Extensions.GetInt32("category"u8);
     }
 
     [Test]
@@ -23,8 +21,8 @@ public class RawModelTests
         model.Category = "number facts";
         model.Extensions.Set("category"u8, JsonSerializer.Serialize(42));
 
-        Assert.That(model.Extensions.TryGet("category"u8, out ReadOnlySpan<byte> json));
-        string jsonText = Encoding.UTF8.GetString(json);
+        Assert.That(model.Extensions.Contains("category"u8));
+        BinaryData json = model.Extensions.GetJson("category"u8);
     }
 
     [Test]
