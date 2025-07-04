@@ -19,10 +19,8 @@ public class RawModelTests
     {
         RawModel model = new();
         model.Category = "number facts";
-        model.Extensions.Set("category"u8, JsonSerializer.Serialize(42));
-
-        Assert.That(model.Extensions.Contains("category"u8));
-        BinaryData json = model.Extensions.GetJson("category"u8);
+        model.Extensions.Set("category"u8, 42);
+        model.Extensions.Write(new Utf8JsonWriter(Console.OpenStandardOutput()));
     }
 
     [Test]

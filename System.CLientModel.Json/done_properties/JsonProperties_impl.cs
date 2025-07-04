@@ -82,7 +82,7 @@ public partial struct JsonPatch
         for (int i = 1; i < count; i++)
         {
             JsonPatchEntry entry = _entries[i];
-            throw new NotImplementedException("Writing JSON patch entries is not implemented yet.");
+            entry.WriteAsJson(writer);
         }
     }
 

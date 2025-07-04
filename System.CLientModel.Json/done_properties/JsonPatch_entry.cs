@@ -120,6 +120,28 @@ public partial struct JsonPatch
                 return $"{Encoding.UTF8.GetString(_buffer, NameOffset, offset - NameOffset)} = {Encoding.UTF8.GetString(_buffer, offset, _buffer.Length - offset)}";
             }
         }
+
+        public void WriteAsJson(Utf8JsonWriter writer)
+        {
+            int offset = ValueOffset;
+            ReadOnlySpan<byte> name = Name.Span;
+            ReadOnlySpan<byte> value = Value.Span;
+            switch (Kind)
+            {
+                case ValueKind.Utf8String:
+                    writer.WriteString(name, value);
+                    break;
+                case ValueKind.Int32:
+                    writer.WriteNumber(name, BinaryPrimitives.ReadInt32LittleEndian(value));
+                    break;
+                case ValueKind.Json:
+                    writer.WritePropertyName(name);
+                    writer.WriteRawValue(value);
+                    break;
+                default:
+                    throw new NotSupportedException($"Unsupported value kind: {Kind}");
+            }
+        }
     }
 }
 
