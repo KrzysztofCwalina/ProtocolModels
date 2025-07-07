@@ -1,4 +1,6 @@
 ﻿using NUnit.Framework;
+using System;
+using System.ClientModel.Primitives;
 using System.IO;
 using System.Text.Json;
 
@@ -11,9 +13,10 @@ public class SimpleModelTests
     {
         SimpleModel model = new();
         model.Extensions.Set("category"u8, 42);
+
         int category = model.Extensions.GetInt32("category"u8);
 
-        AssertSerializesTo(model, """{"category":42}""");
+        AssertSerializesTo(model, """{"id":0,"names":[],"numbers":[],"category":42}""");
     }
 
     [Test]
@@ -22,7 +25,8 @@ public class SimpleModelTests
         SimpleModel model = new();
         model.Category = "number facts";
         model.Extensions.Set("category"u8, 42);
-        AssertSerializesTo(model, """{"category":42}""");
+        model.Extensions.Set("json_only"u8, "true");
+        AssertSerializesTo(model, """{"id":0,"names":[],"numbers":[],"category":42,"json_only":"true"}""");
     }
 
     [Test]
@@ -30,7 +34,8 @@ public class SimpleModelTests
     {
         SimpleModel model = new();
         model.Extensions.Set("numbers"u8, "[1, 2, 3.0]"u8);
-        AssertSerializesTo(model, """{"numbers":[1, 2, 3.0]}""");
+
+        AssertSerializesTo(model, """{"category":null,"id":0,"names":[],"numbers":[1, 2, 3.0]}""");
         int number = model.Extensions.GetInt32("numbers/1"u8);
         Assert.That(number, Is.EqualTo(2));
     }
@@ -47,7 +52,8 @@ public class SimpleModelTests
                 "a": 1,
                 "b": 2.0
             },
-            "array": [1, 2, 3]
+            "array": [1, 2, 3],
+            "names" : ["one", "two", "three"]
         }
         """u8);
         int nestedNumber = model.Extensions.GetInt32("properties/nested/a"u8);
@@ -55,9 +61,12 @@ public class SimpleModelTests
 
         int arrayNumber = model.Extensions.GetInt32("properties/array/2"u8);
         Assert.That(arrayNumber, Is.EqualTo(3));
+
+        string arrayString = model.Extensions.GetString("properties/names/2"u8);
+        Assert.That(arrayString, Is.EqualTo("three"));
     }
 
-    private static void AssertSerializesTo(SimpleModel model, string json)
+    private static void AssertWriteExtensionsTo(SimpleModel model, string json)
     {
         MemoryStream stream = new();
         Utf8JsonWriter writer = new(stream);
@@ -67,5 +76,12 @@ public class SimpleModelTests
         writer.Flush();
         string written = System.Text.Encoding.UTF8.GetString(stream.ToArray());
         Assert.That(written, Is.EqualTo(json));
+    }
+
+    private static void AssertSerializesTo(SimpleModel model, string json)
+    {
+
+        BinaryData serialized = ModelReaderWriter.Write(model);
+        Assert.That(serialized.ToString(), Is.EqualTo(json));
     }
 }
