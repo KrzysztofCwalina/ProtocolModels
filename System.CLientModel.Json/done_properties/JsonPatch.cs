@@ -16,6 +16,7 @@ public partial struct JsonPatch
         Set(entry);
     }
 
+    // TODO: all these methods should take JSON pointer, not just property names
     public string GetString(ReadOnlySpan<byte> name)
     {
         // Check if this is a JSON pointer (contains '/')
@@ -53,27 +54,27 @@ public partial struct JsonPatch
         Set(entry);
     }
 
-    public int GetInt32(ReadOnlySpan<byte> name)
+    public int GetInt32(ReadOnlySpan<byte> jsonPointer)
     {
         // Check if this is a JSON pointer (contains '/')
-        int slashIndex = name.IndexOf((byte)'/');
+        int slashIndex = jsonPointer.IndexOf((byte)'/');
         if (slashIndex >= 0)
         {
             // This is a JSON pointer - extract the base property name
-            ReadOnlySpan<byte> baseName = name.Slice(0, slashIndex);
-            ReadOnlySpan<byte> pointer = name.Slice(slashIndex);
+            ReadOnlySpan<byte> baseName = jsonPointer.Slice(0, slashIndex);
+            ReadOnlySpan<byte> pointer = jsonPointer.Slice(slashIndex);
             
             // Get the JSON value for the base property
             JsonPatchEntry baseValue = Get(baseName);
-            if (baseValue.Kind != ValueKind.Json) ThrowPropertyNotFoundException(name);
+            if (baseValue.Kind != ValueKind.Json) ThrowPropertyNotFoundException(jsonPointer);
             
             // Use JsonPointer to navigate to the specific element
-            return System.Text.Json.JsonPointer.GetInt32(baseValue.Value.Span, pointer);
+            return JsonPointer.GetInt32(baseValue.Value.Span, pointer);
         }
         
         // Direct property access
-        JsonPatchEntry value = Get(name);
-        if (value.Kind != ValueKind.Int32) ThrowPropertyNotFoundException(name);
+        JsonPatchEntry value = Get(jsonPointer);
+        if (value.Kind != ValueKind.Int32) ThrowPropertyNotFoundException(jsonPointer);
         return BinaryPrimitives.ReadInt32LittleEndian(value.Value.Span);
     }
 
