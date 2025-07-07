@@ -15,7 +15,8 @@ public partial struct JsonPatch
 
     public void SetNull(ReadOnlySpan<byte> jsonPointer)
     {
-        throw new NotImplementedException();
+        JsonPatchEntry nullEntry = JsonPatchEntry.CreateNull(jsonPointer);
+        Set(nullEntry);
     }
 
     private enum ValueKind : byte
@@ -24,7 +25,7 @@ public partial struct JsonPatch
         Int32 = 2,
         Utf8String = 4,
         Removed = 8,
-        // TODO: add support for null
+        Null = 16,
         // TODO: add other types: ulong, long, double, float, bool, ushort?, short?
         // TODO: add support for arrays?
     }
@@ -124,6 +125,12 @@ public partial struct JsonPatch
         {
             return new JsonPatchEntry(name, ValueKind.Removed, 0);
         }
+        
+        // Null property
+        public static JsonPatchEntry CreateNull(ReadOnlySpan<byte> name)
+        {
+            return new JsonPatchEntry(name, ValueKind.Null, 0);
+        }
 
         public override string ToString()
         {
@@ -159,6 +166,9 @@ public partial struct JsonPatch
                 case ValueKind.Json:
                     writer.WritePropertyName(name);
                     writer.WriteRawValue(value);
+                    break;
+                case ValueKind.Null:
+                    writer.WriteNull(name);
                     break;
                 default:
                     throw new NotSupportedException($"Unsupported value kind: {Kind}");
