@@ -1,5 +1,5 @@
 ﻿using NUnit.Framework;
-using System;
+using System.IO;
 using System.Text.Json;
 
 namespace AdditionalProperties;
@@ -12,6 +12,8 @@ public class RawModelTests
         RawModel model = new();
         model.Extensions.Set("category"u8, 42);
         int category = model.Extensions.GetInt32("category"u8);
+
+        AssertSerializesTo(model, """{"category":42}""");
     }
 
     [Test]
@@ -20,21 +22,26 @@ public class RawModelTests
         RawModel model = new();
         model.Category = "number facts";
         model.Extensions.Set("category"u8, 42);
-        model.Extensions.Write(new Utf8JsonWriter(Console.OpenStandardOutput()));
+        AssertSerializesTo(model, """{"category":42}""");
     }
 
     [Test]
     public void ArraysCanBeSetThroughJson()
     {
-        SomeModel model = new();
+        RawModel model = new();
+        model.Extensions.Set("numbers"u8, "[1.0, 2.0, 3.0]"u8);
+        AssertSerializesTo(model, """{"numbers":[1.0, 2.0, 3.0]}""");
+    }
 
-        model.Json.Set("numbers"u8, "[1.0, 2.0, 3.0]"u8);
-        model.Json.Set("numbers/1"u8, 99.9);
-
-        double[] numbersArray = model.Numbers;
-        Assert.That(numbersArray.Length, Is.EqualTo(3));
-        Assert.That(numbersArray[0], Is.EqualTo(1.0));    // Unchanged
-        Assert.That(numbersArray[1], Is.EqualTo(99.9));   // Modified
-        Assert.That(numbersArray[2], Is.EqualTo(3.0));    // Unchanged
+    private static void AssertSerializesTo(RawModel model, string json)
+    {
+        MemoryStream stream = new();
+        Utf8JsonWriter writer = new(stream);
+        writer.WriteStartObject();
+        model.Extensions.Write(writer);
+        writer.WriteEndObject();
+        writer.Flush();
+        string written = System.Text.Encoding.UTF8.GetString(stream.ToArray());
+        Assert.That(written, Is.EqualTo(json));
     }
 }

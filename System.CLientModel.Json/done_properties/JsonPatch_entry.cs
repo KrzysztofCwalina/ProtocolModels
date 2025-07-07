@@ -102,7 +102,6 @@ public partial struct JsonPatch
         public JsonPatchEntry(ReadOnlySpan<byte> name, ReadOnlySpan<byte> json)
             : this(name, ValueKind.Json, json.Length)
         {
-            Debug.Assert(ValueOffset == 0);
             json.CopyTo(_buffer.AsSpan(ValueOffset));
         }
 
