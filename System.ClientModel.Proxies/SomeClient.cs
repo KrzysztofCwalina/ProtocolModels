@@ -29,12 +29,12 @@ public partial class SomeClient
     }
 
     // typed protocol method (allows renames, but not restructuring)
-    public ClientResult<SomeModel> DoSomething(string name, SomeModel model, CancellationToken ct = default)
+    public ClientResult<SynchronizingModel> DoSomething(string name, SynchronizingModel model, CancellationToken ct = default)
     {
         BinaryContent content = CreateDoSomethingContent(model);
         ClientResult result = DoSomething(name, content, new RequestOptions { CancellationToken = ct });
         PipelineResponse response = result.GetRawResponse();
-        SomeModel value = CreateDoSomethingResult(response);
+        SynchronizingModel value = CreateDoSomethingResult(response);
         return ClientResult.FromValue(value, response);
     }
 
@@ -46,16 +46,16 @@ public partial class SomeClient
         return message;
     }
 
-    protected virtual BinaryContent CreateDoSomethingContent(SomeModel content)
+    protected virtual BinaryContent CreateDoSomethingContent(SynchronizingModel content)
     {
         ModelReaderWriterOptions options = new("W");
         BinaryData bytes = ModelReaderWriter.Write(content, options);
         return BinaryContent.Create(bytes);
     }
 
-    protected virtual SomeModel CreateDoSomethingResult(PipelineResponse response)
+    protected virtual SynchronizingModel CreateDoSomethingResult(PipelineResponse response)
     {
-        return ModelReaderWriter.Read<SomeModel>(response.Content)!;
+        return ModelReaderWriter.Read<SynchronizingModel>(response.Content)!;
     }
 }
 public class  SomeClientOptions : ClientPipelineOptions

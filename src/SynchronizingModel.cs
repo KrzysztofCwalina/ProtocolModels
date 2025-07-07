@@ -1,7 +1,11 @@
 ﻿using System.ClientModel.Primitives;
 using System.Text.Json;
 
-public class SomeModel : ExtensibleModel<SomeModel>
+
+// this is option #1. 
+// this model tries to synchronize JSON and CLR properties
+// I think it's too complex
+public class SynchronizingModel : ExtensibleModel<SynchronizingModel>
 {
     public string Category { get; set; } = String.Empty;
     public int Id { get; set; } = 0;
@@ -9,11 +13,11 @@ public class SomeModel : ExtensibleModel<SomeModel>
     public string[] Names { get; set; } = Array.Empty<string>();
     public double[] Numbers { get; set; } = Array.Empty<double>();
 
-    protected override SomeModel CreateCore(ref Utf8JsonReader reader, ModelReaderWriterOptions options)
+    protected override SynchronizingModel CreateCore(ref Utf8JsonReader reader, ModelReaderWriterOptions options)
     {
         JsonDocument doc = JsonDocument.ParseValue(ref reader);
         JsonElement root = doc.RootElement;
-        SomeModel model = new();
+        SynchronizingModel model = new();
         foreach (JsonProperty property in root.EnumerateObject())
         {
             if (property.NameEquals("category"u8))

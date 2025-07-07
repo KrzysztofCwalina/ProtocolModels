@@ -1,15 +1,17 @@
 ﻿using NUnit.Framework;
+using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 
 namespace AdditionalProperties;
 
-public class RawModelTests
+public class SimpleModelTests
 {
     [Test]
     public void Smoke()
     {
-        RawModel model = new();
+        SimpleModel model = new();
         model.Extensions.Set("category"u8, 42);
         int category = model.Extensions.GetInt32("category"u8);
 
@@ -19,7 +21,7 @@ public class RawModelTests
     [Test]
     public void Serialization()
     {
-        RawModel model = new();
+        SimpleModel model = new();
         model.Category = "number facts";
         model.Extensions.Set("category"u8, 42);
         AssertSerializesTo(model, """{"category":42}""");
@@ -28,12 +30,12 @@ public class RawModelTests
     [Test]
     public void ArraysCanBeSetThroughJson()
     {
-        RawModel model = new();
+        SimpleModel model = new();
         model.Extensions.Set("numbers"u8, "[1.0, 2.0, 3.0]"u8);
         AssertSerializesTo(model, """{"numbers":[1.0, 2.0, 3.0]}""");
     }
 
-    private static void AssertSerializesTo(RawModel model, string json)
+    private static void AssertSerializesTo(SimpleModel model, string json)
     {
         MemoryStream stream = new();
         Utf8JsonWriter writer = new(stream);

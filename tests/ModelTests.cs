@@ -6,12 +6,12 @@ using System.Text.Json;
 namespace AdditionalProperties;
 
 // TODO: what do we do with enums and other types we cannot implement JsonModel on?
-public class ModelAdditionalPropertiesTests
+public class SynchronizingModelTests
 {
     [Test]
     public void SmokeTests()
     {
-        SomeModel model = new();
+        SynchronizingModel model = new();
         model.Category = "number facts";
         model.Numbers = [42, 3.14];
         model.Names = ["my first building", "PI"];
@@ -35,7 +35,7 @@ public class ModelAdditionalPropertiesTests
     [Test]
     public void ArrayTests()
     {
-        SomeModel model = new();
+        SynchronizingModel model = new();
         
         // First create arrays using the regular Set method
         model.Json.Set("numbers"u8, "[1.0, 2.0, 3.0]"u8);
@@ -71,7 +71,7 @@ public class ModelAdditionalPropertiesTests
     
     [Test]
     public void SerializationTests() {
-        SomeModel original = new();
+        SynchronizingModel original = new();
         original.Names = ["my first building", "PI"];
 
         original["category"] = "facts";
@@ -89,7 +89,7 @@ public class ModelAdditionalPropertiesTests
         Assert.That(json.GetString("/names/1"u8), Is.EqualTo(original.Names[1]));
         Assert.That(json.GetDouble("/temperature"u8), Is.EqualTo(90d));
 
-        SomeModel deserialized = ModelReaderWriter.Read<SomeModel>(json);
+        SynchronizingModel deserialized = ModelReaderWriter.Read<SynchronizingModel>(json);
 
         Assert.That(deserialized.Category, Is.EqualTo(original.Category));
         Assert.That(deserialized.Numbers, Is.EqualTo(original.Numbers));
@@ -105,7 +105,7 @@ public class ModelAdditionalPropertiesTests
     [Test]
     public void PropertyTypeMismatch()
     {
-        SomeModel model = new();
+        SynchronizingModel model = new();
         string guidString = Guid.NewGuid().ToString();
 
         // 1. Setting a string value to an int property via the Json API should succeed
@@ -119,7 +119,7 @@ public class ModelAdditionalPropertiesTests
         
         // 4. Test that we can serialize and deserialize the model with the type mismatch
         BinaryData serialized = ModelReaderWriter.Write(model);
-        SomeModel deserialized = ModelReaderWriter.Read<SomeModel>(serialized);
+        SynchronizingModel deserialized = ModelReaderWriter.Read<SynchronizingModel>(serialized);
         
         // Check that the deserialized model preserved the type mismatch properly
         Assert.That(deserialized.Id, Is.EqualTo(0), "Deserialized CLR property should maintain its default value");

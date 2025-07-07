@@ -3,7 +3,10 @@ using System.ComponentModel;
 using System.Text;
 using System.Text.Json;
 
-public class RawModel: JsonModel<RawModel>
+// this is option #2. 
+// this model does not try to synchronize JSON and CLR properties; the JSON properties are for MRW only/mainly
+// I think it's too complex
+public class SimpleModel: JsonModel<SimpleModel>
 {
     private JsonPatch _extensions = new();
     [EditorBrowsable(EditorBrowsableState.Never)]
@@ -14,11 +17,11 @@ public class RawModel: JsonModel<RawModel>
     public short[] Numbers { get; set; } = Array.Empty<short>();
     public SubModel SubModel { get; set; } = new();
 
-    protected override RawModel CreateCore(ref Utf8JsonReader reader, ModelReaderWriterOptions options)
+    protected override SimpleModel CreateCore(ref Utf8JsonReader reader, ModelReaderWriterOptions options)
     {
         JsonDocument doc = JsonDocument.ParseValue(ref reader);
         JsonElement root = doc.RootElement;
-        RawModel model = new();
+        SimpleModel model = new();
         foreach (JsonProperty property in root.EnumerateObject())
         {
             if (property.NameEquals("category"u8))

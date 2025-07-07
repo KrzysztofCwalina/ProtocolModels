@@ -3,13 +3,13 @@ using System;
 
 namespace AdditionalProperties;
 
-public class SomeModelEdgeCases
+public class SynchronizingModelEdgeCases
 {
     [Ignore("we need to decide what we want")]
     [Test]
     public void ChangeClrPropertyType()
     {
-        SomeModel model = new();
+        SynchronizingModel model = new();
         model.Category = "number facts";
         model["category"] = 42;
 
@@ -25,7 +25,7 @@ public class SomeModelEdgeCases
     [Test]
     public void ArraysCanBeSetThroughJson()
     {
-        SomeModel model = new();
+        SynchronizingModel model = new();
 
         model.Json.Set("numbers"u8, "[1.0, 2.0, 3.0]"u8);
         model.Json.Set("numbers/1"u8, 99.9);

@@ -6,7 +6,7 @@ using System.Text.Json;
 public partial class SomeClient
 {
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public virtual SomeModel CreateProtocolInputModel(ConvenienceSomeModel options)
+    public virtual SynchronizingModel CreateProtocolInputModel(ConvenienceSomeModel options)
     {
         throw new NotImplementedException();
     }
@@ -14,8 +14,8 @@ public partial class SomeClient
     // convenience method
     public ClientResult<ConvenienceSomeModel> DoSomething(ConvenienceSomeModel options, CancellationToken ct = default)
     {
-        SomeModel protocolModel = CreateProtocolInputModel(options);
-        ClientResult<SomeModel> po = DoSomething(options.Id, protocolModel, ct);
+        SynchronizingModel protocolModel = CreateProtocolInputModel(options);
+        ClientResult<SynchronizingModel> po = DoSomething(options.Id, protocolModel, ct);
 
         var convenienceModel = new ConvenienceSomeModel
         {
