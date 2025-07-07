@@ -94,6 +94,11 @@ public partial struct JsonPatch
         return BinaryData.FromBytes(value.Value);
     }
 
+    public void Set(ReadOnlySpan<byte> name, bool value)
+    {
+        throw new NotImplementedException();
+    }
+
     // Special (remove, set null, etc)
     public void Remove(ReadOnlySpan<byte> jsonPointer)
     {

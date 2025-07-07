@@ -88,6 +88,14 @@ public class SimpleModelTests
         AssertSerializesTo(model, """{"id":0,"names":[],"numbers":[],"category":42,"json_only":null}""");
     }
 
+    [Test]
+    public void Boolean()
+    {
+        SimpleModel model = new();
+        model.Extensions.Set("json_only"u8, true);
+        AssertSerializesTo(model, """{"id":0,"names":[],"numbers":[],"category":42,"json_only":true}""");
+    }
+
     private static void AssertSerializesTo(SimpleModel model, string json)
     {
         BinaryData serialized = ModelReaderWriter.Write(model);
