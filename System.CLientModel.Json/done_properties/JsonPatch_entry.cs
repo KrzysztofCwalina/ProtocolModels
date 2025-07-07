@@ -9,7 +9,8 @@ public partial struct JsonPatch
 {
     public void Remove(ReadOnlySpan<byte> jsonPointer)
     {
-        throw new NotImplementedException();
+        JsonPatchEntry removedEntry = JsonPatchEntry.CreateRemoved(jsonPointer);
+        Set(removedEntry);
     }
 
     private enum ValueKind : byte
@@ -17,6 +18,7 @@ public partial struct JsonPatch
         Json = 1,
         Int32 = 2,
         Utf8String = 4,
+        Removed = 8,
     }
     // value_offset (2 bytes) | value kind (1 byte) | 1 byte (reserved) |name (variable length) | value (variable length)
     private readonly struct JsonPatchEntry
@@ -109,6 +111,11 @@ public partial struct JsonPatch
         {
             json.CopyTo(_buffer.AsSpan(ValueOffset));
         }
+        // Removed property
+        public static JsonPatchEntry CreateRemoved(ReadOnlySpan<byte> name)
+        {
+            return new JsonPatchEntry(name, ValueKind.Removed, 0);
+        }
 
         public override string ToString()
         {
@@ -127,6 +134,9 @@ public partial struct JsonPatch
 
         public void WriteAsJson(Utf8JsonWriter writer)
         {
+            // Skip removed properties during serialization
+            if (Kind == ValueKind.Removed) return;
+            
             int offset = ValueOffset;
             ReadOnlySpan<byte> name = Name.Span;
             ReadOnlySpan<byte> value = Value.Span;
