@@ -14,7 +14,8 @@ public partial struct JsonPatch
         Utf8String = 4,
         Removed = 8,
         Null = 16,
-        // TODO: add other types: ulong, long, double, float, bool, ushort?, short?
+        Boolean = 32,
+        // TODO: add other types: ulong, long, double, float, ushort?, short?
         // TODO: add support for arrays?
     }
     // value_offset (2 bytes) | value kind (1 byte) | 1 byte (reserved) |name (variable length) | value (variable length)
@@ -104,6 +105,20 @@ public partial struct JsonPatch
             BinaryPrimitives.WriteInt32LittleEndian(ValueBuffer, value);
         }
 
+        // Boolean
+        public JsonPatchEntry(ReadOnlySpan<byte> name, bool value)
+            : this(name, ValueKind.Boolean, sizeof(bool))
+        {
+            ValueBuffer[0] = value ? (byte)1 : (byte)0;
+        }
+        public bool GetBoolean() => ValueBuffer[0] != 0;
+
+        public void Set(bool value)
+        {
+            Debug.Assert(this.Kind == ValueKind.Boolean);
+            ValueBuffer[0] = value ? (byte)1 : (byte)0;
+        }
+
         // JSON
         public JsonPatchEntry(ReadOnlySpan<byte> name, ReadOnlySpan<byte> json)
             : this(name, ValueKind.Json, json.Length)
@@ -153,6 +168,9 @@ public partial struct JsonPatch
                     break;
                 case ValueKind.Int32:
                     writer.WriteNumber(name, BinaryPrimitives.ReadInt32LittleEndian(value));
+                    break;
+                case ValueKind.Boolean:
+                    writer.WriteBoolean(name, value[0] != 0);
                     break;
                 case ValueKind.Json:
                     writer.WritePropertyName(name);

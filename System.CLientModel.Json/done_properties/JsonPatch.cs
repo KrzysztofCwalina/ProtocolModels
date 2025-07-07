@@ -96,7 +96,8 @@ public partial struct JsonPatch
 
     public void Set(ReadOnlySpan<byte> name, bool value)
     {
-        throw new NotImplementedException();
+        JsonPatchEntry entry = new(name, value);
+        Set(entry);
     }
 
     // Special (remove, set null, etc)
