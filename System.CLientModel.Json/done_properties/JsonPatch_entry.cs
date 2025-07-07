@@ -11,10 +11,11 @@ public partial struct JsonPatch
     {
         Json = 1,
         Int32 = 2,
-        Utf8String = 4,
-        Removed = 8,
-        Null = 16,
-        Boolean = 32,
+        Utf8String = 3,
+        Removed = 4,
+        Null = 5,
+        BooleanTrue = 6,
+        BooleanFalse = 7,
         // TODO: add other types: ulong, long, double, float, ushort?, short?
         // TODO: add support for arrays?
     }
@@ -107,16 +108,15 @@ public partial struct JsonPatch
 
         // Boolean
         public JsonPatchEntry(ReadOnlySpan<byte> name, bool value)
-            : this(name, ValueKind.Boolean, sizeof(bool))
+            : this(name, value ? ValueKind.BooleanTrue : ValueKind.BooleanFalse, 0)
         {
-            ValueBuffer[0] = value ? (byte)1 : (byte)0;
         }
-        public bool GetBoolean() => ValueBuffer[0] != 0;
+        public bool GetBoolean() => Kind == ValueKind.BooleanTrue;
 
         public void Set(bool value)
         {
-            Debug.Assert(this.Kind == ValueKind.Boolean);
-            ValueBuffer[0] = value ? (byte)1 : (byte)0;
+            Debug.Assert(this.Kind == ValueKind.BooleanTrue || this.Kind == ValueKind.BooleanFalse);
+            _buffer[KindOffset] = (byte)(value ? ValueKind.BooleanTrue : ValueKind.BooleanFalse);
         }
 
         // JSON
@@ -169,8 +169,11 @@ public partial struct JsonPatch
                 case ValueKind.Int32:
                     writer.WriteNumber(name, BinaryPrimitives.ReadInt32LittleEndian(value));
                     break;
-                case ValueKind.Boolean:
-                    writer.WriteBoolean(name, value[0] != 0);
+                case ValueKind.BooleanTrue:
+                    writer.WriteBoolean(name, true);
+                    break;
+                case ValueKind.BooleanFalse:
+                    writer.WriteBoolean(name, false);
                     break;
                 case ValueKind.Json:
                     writer.WritePropertyName(name);
