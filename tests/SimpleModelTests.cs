@@ -1,8 +1,6 @@
 ﻿using NUnit.Framework;
 using System;
 using System.ClientModel.Primitives;
-using System.IO;
-using System.Text.Json;
 
 namespace AdditionalProperties;
 
@@ -66,21 +64,8 @@ public class SimpleModelTests
         Assert.That(arrayString, Is.EqualTo("three"));
     }
 
-    private static void AssertWriteExtensionsTo(SimpleModel model, string json)
-    {
-        MemoryStream stream = new();
-        Utf8JsonWriter writer = new(stream);
-        writer.WriteStartObject();
-        model.Extensions.Write(writer);
-        writer.WriteEndObject();
-        writer.Flush();
-        string written = System.Text.Encoding.UTF8.GetString(stream.ToArray());
-        Assert.That(written, Is.EqualTo(json));
-    }
-
     private static void AssertSerializesTo(SimpleModel model, string json)
     {
-
         BinaryData serialized = ModelReaderWriter.Write(model);
         Assert.That(serialized.ToString(), Is.EqualTo(json));
     }
