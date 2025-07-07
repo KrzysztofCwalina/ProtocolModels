@@ -79,6 +79,14 @@ public class SimpleModelTests
         Assert.That(arrayString, Is.EqualTo("three"));
     }
 
+    [Test]
+    public void Null()
+    {
+        SimpleModel model = new();
+        model.Extensions.SetNull("json_only"u8);
+        AssertSerializesTo(model, """{"id":0,"names":[],"numbers":[],"category":42,"json_only":null}""");
+    }
+
     private static void AssertSerializesTo(SimpleModel model, string json)
     {
         BinaryData serialized = ModelReaderWriter.Write(model);

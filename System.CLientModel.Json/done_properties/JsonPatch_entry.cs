@@ -13,12 +13,20 @@ public partial struct JsonPatch
         Set(removedEntry);
     }
 
+    public void SetNull(ReadOnlySpan<byte> jsonPointer)
+    {
+        throw new NotImplementedException();
+    }
+
     private enum ValueKind : byte
     {
         Json = 1,
         Int32 = 2,
         Utf8String = 4,
         Removed = 8,
+        // TODO: add support for null
+        // TODO: add other types: ulong, long, double, float, bool, ushort?, short?
+        // TODO: add support for arrays?
     }
     // value_offset (2 bytes) | value kind (1 byte) | 1 byte (reserved) |name (variable length) | value (variable length)
     private readonly struct JsonPatchEntry
