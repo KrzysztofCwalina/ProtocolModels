@@ -11,7 +11,7 @@ namespace System.ClientModel.Primitives;
 public partial struct JsonPatch
 {
     // this is either null (empty) or the first property contains the count of properties (including count property)
-    private JsonPatchEntry[] _entries;
+    private PropertyRecord[] _entries;
 
     public int Count => PrivateCount - 1;
 
@@ -30,12 +30,12 @@ public partial struct JsonPatch
         return -1;
     }
 
-    private void Add(JsonPatchEntry entry)
+    private void Add(PropertyRecord entry)
     {
         if (_entries == null)
         {
-            _entries = new JsonPatchEntry[2];
-            _entries[0] = new JsonPatchEntry("$count"u8, 2);
+            _entries = new PropertyRecord[2];
+            _entries[0] = new PropertyRecord("$count"u8, 2);
             _entries[1] = entry;
             return;
         }
@@ -45,7 +45,7 @@ public partial struct JsonPatch
         _entries[count] = entry;
     }
 
-    private void Set(JsonPatchEntry entry)
+    private void Set(PropertyRecord entry)
     {
         ReadOnlyMemory<byte> name = entry.Name;
         int index = IndexOf(name.Span);
@@ -59,12 +59,12 @@ public partial struct JsonPatch
         }
     }
 
-    private JsonPatchEntry GetAt(int index)
+    private PropertyRecord GetAt(int index)
     {
         return _entries[index];
     }
 
-    private JsonPatchEntry Get(ReadOnlySpan<byte> name)
+    private PropertyRecord Get(ReadOnlySpan<byte> name)
     {
         int index = IndexOf(name);
         if (index < 0) ThrowPropertyNotFoundException(name);
@@ -81,7 +81,7 @@ public partial struct JsonPatch
         int count = PrivateCount;
         for (int i = 1; i < count; i++)
         {
-            JsonPatchEntry entry = _entries[i];
+            PropertyRecord entry = _entries[i];
             entry.WriteAsJson(writer);
         }
     }
@@ -109,8 +109,8 @@ public partial struct JsonPatch
         if (_entries == null)
         {
             Debug.Fail("this should never happen");
-            _entries = new JsonPatchEntry[2];
-            _entries[0] = new JsonPatchEntry("$count"u8, 1);
+            _entries = new PropertyRecord[2];
+            _entries[0] = new PropertyRecord("$count"u8, 1);
             return;
         }
 

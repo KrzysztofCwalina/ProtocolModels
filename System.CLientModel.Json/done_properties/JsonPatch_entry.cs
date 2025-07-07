@@ -20,7 +20,7 @@ public partial struct JsonPatch
         // TODO: add support for arrays?
     }
     // value_offset (2 bytes) | value kind (1 byte) | 1 byte (reserved) |name (variable length) | value (variable length)
-    private readonly struct JsonPatchEntry
+    private readonly struct PropertyRecord
     {
         private readonly byte[] _buffer;
 
@@ -68,7 +68,7 @@ public partial struct JsonPatch
             return Name.Span.SequenceEqual(name);
         }
 
-        private JsonPatchEntry(ReadOnlySpan<byte> name, ValueKind kind, int valueLength)
+        private PropertyRecord(ReadOnlySpan<byte> name, ValueKind kind, int valueLength)
         {
             int valueOffset = NameOffset + name.Length;
             if (valueOffset > ushort.MaxValue) throw new ArgumentException("name too long");
@@ -80,7 +80,7 @@ public partial struct JsonPatch
         }
 
         // string
-        public JsonPatchEntry(ReadOnlySpan<byte> name, string text)
+        public PropertyRecord(ReadOnlySpan<byte> name, string text)
         {
             int valueOffset = NameOffset + name.Length;
             if (valueOffset > ushort.MaxValue) throw new ArgumentException("name too long");
@@ -93,49 +93,34 @@ public partial struct JsonPatch
         }
         
         // Int32
-        public JsonPatchEntry(ReadOnlySpan<byte> name, int value)
+        public PropertyRecord(ReadOnlySpan<byte> name, int value)
             : this(name, ValueKind.Int32, sizeof(int))
         {
             BinaryPrimitives.WriteInt32LittleEndian(ValueBuffer, value);
         }
-        public int GetInt32() => BinaryPrimitives.ReadInt32LittleEndian(ValueBuffer);
-
-        public void Set(int value)
-        {
-            Debug.Assert(this.Kind == ValueKind.Int32);
-            BinaryPrimitives.WriteInt32LittleEndian(ValueBuffer, value);
-        }
 
         // Boolean
-        public JsonPatchEntry(ReadOnlySpan<byte> name, bool value)
+        public PropertyRecord(ReadOnlySpan<byte> name, bool value)
             : this(name, value ? ValueKind.BooleanTrue : ValueKind.BooleanFalse, 0)
-        {
-        }
-        public bool GetBoolean() => Kind == ValueKind.BooleanTrue;
-
-        public void Set(bool value)
-        {
-            Debug.Assert(this.Kind == ValueKind.BooleanTrue || this.Kind == ValueKind.BooleanFalse);
-            _buffer[KindOffset] = (byte)(value ? ValueKind.BooleanTrue : ValueKind.BooleanFalse);
-        }
+        { }
 
         // JSON
-        public JsonPatchEntry(ReadOnlySpan<byte> name, ReadOnlySpan<byte> json)
+        public PropertyRecord(ReadOnlySpan<byte> name, ReadOnlySpan<byte> json)
             : this(name, ValueKind.Json, json.Length)
         {
             json.CopyTo(_buffer.AsSpan(ValueOffset));
         }
         
         // Removed property
-        public static JsonPatchEntry CreateRemoved(ReadOnlySpan<byte> name)
+        public static PropertyRecord CreateRemoved(ReadOnlySpan<byte> name)
         {
-            return new JsonPatchEntry(name, ValueKind.Removed, 0);
+            return new PropertyRecord(name, ValueKind.Removed, 0);
         }
         
         // Null property
-        public static JsonPatchEntry CreateNull(ReadOnlySpan<byte> name)
+        public static PropertyRecord CreateNull(ReadOnlySpan<byte> name)
         {
-            return new JsonPatchEntry(name, ValueKind.Null, 0);
+            return new PropertyRecord(name, ValueKind.Null, 0);
         }
 
         public override string ToString()
@@ -185,6 +170,23 @@ public partial struct JsonPatch
                 default:
                     throw new NotSupportedException($"Unsupported value kind: {Kind}");
             }
+        }
+
+        public int GetInt32() => BinaryPrimitives.ReadInt32LittleEndian(ValueBuffer);
+
+        public void Set(int value)
+        {
+            Debug.Assert(this.Kind == ValueKind.Int32);
+            BinaryPrimitives.WriteInt32LittleEndian(ValueBuffer, value);
+        }
+
+        // Boolean:
+        public bool GetBoolean() => Kind == ValueKind.BooleanTrue;
+
+        public void Set(bool value)
+        {
+            Debug.Assert(this.Kind == ValueKind.BooleanTrue || this.Kind == ValueKind.BooleanFalse);
+            _buffer[KindOffset] = (byte)(value ? ValueKind.BooleanTrue : ValueKind.BooleanFalse);
         }
     }
 }

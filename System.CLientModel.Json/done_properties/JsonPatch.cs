@@ -13,7 +13,7 @@ public partial struct JsonPatch
     // System.String
     public void Set(ReadOnlySpan<byte> name, string value)
     {  
-        JsonPatchEntry entry = new(name, value);
+        PropertyRecord entry = new(name, value);
         Set(entry);
     }
 
@@ -29,7 +29,7 @@ public partial struct JsonPatch
             ReadOnlySpan<byte> pointer = jsonPointer.Slice(slashIndex);
             
             // Get the JSON value for the base property
-            JsonPatchEntry baseValue = Get(baseName);
+            PropertyRecord baseValue = Get(baseName);
             if (baseValue.Kind != ValueKind.Json) ThrowPropertyNotFoundException(jsonPointer);
             
             // Use JsonPointer to navigate to the specific element
@@ -37,13 +37,13 @@ public partial struct JsonPatch
         }
         
         // Direct property access
-        JsonPatchEntry value = Get(jsonPointer);
+        PropertyRecord value = Get(jsonPointer);
         if (value.Kind != ValueKind.Utf8String) ThrowPropertyNotFoundException(jsonPointer); 
         return Encoding.UTF8.GetString(value.Value.Span);   
     }
     public ReadOnlyMemory<byte> GetStringUtf8(ReadOnlySpan<byte> jsonPointer)
     {
-        JsonPatchEntry value = Get(jsonPointer);
+        PropertyRecord value = Get(jsonPointer);
         if (value.Kind != ValueKind.Utf8String) ThrowPropertyNotFoundException(jsonPointer); 
         return value.Value;
     }
@@ -51,7 +51,7 @@ public partial struct JsonPatch
     // Int32
     public void Set(ReadOnlySpan<byte> name, int value)
     {
-        JsonPatchEntry entry = new(name, value);
+        PropertyRecord entry = new(name, value);
         Set(entry);
     }
 
@@ -66,7 +66,7 @@ public partial struct JsonPatch
             ReadOnlySpan<byte> pointer = jsonPointer.Slice(slashIndex);
             
             // Get the JSON value for the base property
-            JsonPatchEntry baseValue = Get(baseName);
+            PropertyRecord baseValue = Get(baseName);
             if (baseValue.Kind != ValueKind.Json) ThrowPropertyNotFoundException(jsonPointer);
             
             // Use JsonPointer to navigate to the specific element
@@ -74,7 +74,7 @@ public partial struct JsonPatch
         }
         
         // Direct property access
-        JsonPatchEntry value = Get(jsonPointer);
+        PropertyRecord value = Get(jsonPointer);
         if (value.Kind != ValueKind.Int32) ThrowPropertyNotFoundException(jsonPointer);
         return BinaryPrimitives.ReadInt32LittleEndian(value.Value.Span);
     }
@@ -83,33 +83,33 @@ public partial struct JsonPatch
     // JSON Object
     public void Set(ReadOnlySpan<byte> name, ReadOnlySpan<byte> json)
     {
-        JsonPatchEntry entry = new(name, json);
+        PropertyRecord entry = new(name, json);
         Set(entry);
     }
 
     public BinaryData GetJson(ReadOnlySpan<byte> jsonPointer)
     {
-        JsonPatchEntry value = Get(jsonPointer);
+        PropertyRecord value = Get(jsonPointer);
         if (value.Kind != ValueKind.Json) ThrowPropertyNotFoundException(jsonPointer); 
         return BinaryData.FromBytes(value.Value);
     }
 
     public void Set(ReadOnlySpan<byte> name, bool value)
     {
-        JsonPatchEntry entry = new(name, value);
+        PropertyRecord entry = new(name, value);
         Set(entry);
     }
 
     // Special (remove, set null, etc)
     public void Remove(ReadOnlySpan<byte> jsonPointer)
     {
-        JsonPatchEntry removedEntry = JsonPatchEntry.CreateRemoved(jsonPointer);
+        PropertyRecord removedEntry = PropertyRecord.CreateRemoved(jsonPointer);
         Set(removedEntry);
     }
 
     public void SetNull(ReadOnlySpan<byte> jsonPointer)
     {
-        JsonPatchEntry nullEntry = JsonPatchEntry.CreateNull(jsonPointer);
+        PropertyRecord nullEntry = PropertyRecord.CreateNull(jsonPointer);
         Set(nullEntry);
     }
 }
