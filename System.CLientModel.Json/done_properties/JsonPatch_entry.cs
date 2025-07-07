@@ -7,18 +7,6 @@ namespace System.ClientModel.Primitives;
 
 public partial struct JsonPatch
 {
-    public void Remove(ReadOnlySpan<byte> jsonPointer)
-    {
-        JsonPatchEntry removedEntry = JsonPatchEntry.CreateRemoved(jsonPointer);
-        Set(removedEntry);
-    }
-
-    public void SetNull(ReadOnlySpan<byte> jsonPointer)
-    {
-        JsonPatchEntry nullEntry = JsonPatchEntry.CreateNull(jsonPointer);
-        Set(nullEntry);
-    }
-
     private enum ValueKind : byte
     {
         Json = 1,
@@ -101,25 +89,28 @@ public partial struct JsonPatch
             name.CopyTo(_buffer.AsSpan(NameOffset));
             Encoding.UTF8.GetBytes(text, _buffer.AsSpan(valueOffset));
         }
+        
         // Int32
         public JsonPatchEntry(ReadOnlySpan<byte> name, int value)
             : this(name, ValueKind.Int32, sizeof(int))
         {
             BinaryPrimitives.WriteInt32LittleEndian(ValueBuffer, value);
         }
-        internal int GetInt32() => BinaryPrimitives.ReadInt32LittleEndian(ValueBuffer);
-        
-        internal void Set(int value)
+        public int GetInt32() => BinaryPrimitives.ReadInt32LittleEndian(ValueBuffer);
+
+        public void Set(int value)
         {
             Debug.Assert(this.Kind == ValueKind.Int32);
             BinaryPrimitives.WriteInt32LittleEndian(ValueBuffer, value);
         }
+
         // JSON
         public JsonPatchEntry(ReadOnlySpan<byte> name, ReadOnlySpan<byte> json)
             : this(name, ValueKind.Json, json.Length)
         {
             json.CopyTo(_buffer.AsSpan(ValueOffset));
         }
+        
         // Removed property
         public static JsonPatchEntry CreateRemoved(ReadOnlySpan<byte> name)
         {

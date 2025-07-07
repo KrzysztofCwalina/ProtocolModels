@@ -9,48 +9,49 @@ namespace System.ClientModel.Primitives;
 
 public partial struct JsonPatch
 {
+    // TODO: can set support json pointer?
     // System.String
     public void Set(ReadOnlySpan<byte> name, string value)
     {  
-        JsonPatchEntry entry = new JsonPatchEntry(name, value);
+        JsonPatchEntry entry = new(name, value);
         Set(entry);
     }
 
     // TODO: all these methods should take JSON pointer, not just property names
-    public string GetString(ReadOnlySpan<byte> name)
+    public string GetString(ReadOnlySpan<byte> jsonPointer)
     {
         // Check if this is a JSON pointer (contains '/')
-        int slashIndex = name.IndexOf((byte)'/');
+        int slashIndex = jsonPointer.IndexOf((byte)'/');
         if (slashIndex >= 0)
         {
             // This is a JSON pointer - extract the base property name
-            ReadOnlySpan<byte> baseName = name.Slice(0, slashIndex);
-            ReadOnlySpan<byte> pointer = name.Slice(slashIndex);
+            ReadOnlySpan<byte> baseName = jsonPointer.Slice(0, slashIndex);
+            ReadOnlySpan<byte> pointer = jsonPointer.Slice(slashIndex);
             
             // Get the JSON value for the base property
             JsonPatchEntry baseValue = Get(baseName);
-            if (baseValue.Kind != ValueKind.Json) ThrowPropertyNotFoundException(name);
+            if (baseValue.Kind != ValueKind.Json) ThrowPropertyNotFoundException(jsonPointer);
             
             // Use JsonPointer to navigate to the specific element
-            return System.Text.Json.JsonPointer.GetString(baseValue.Value.Span, pointer) ?? string.Empty;
+            return JsonPointer.GetString(baseValue.Value.Span, pointer) ?? string.Empty;
         }
         
         // Direct property access
-        JsonPatchEntry value = Get(name);
-        if (value.Kind != ValueKind.Utf8String) ThrowPropertyNotFoundException(name); 
+        JsonPatchEntry value = Get(jsonPointer);
+        if (value.Kind != ValueKind.Utf8String) ThrowPropertyNotFoundException(jsonPointer); 
         return Encoding.UTF8.GetString(value.Value.Span);   
     }
-    public ReadOnlyMemory<byte> GetStringUtf8(ReadOnlySpan<byte> name)
+    public ReadOnlyMemory<byte> GetStringUtf8(ReadOnlySpan<byte> jsonPointer)
     {
-        JsonPatchEntry value = Get(name);
-        if (value.Kind != ValueKind.Utf8String) ThrowPropertyNotFoundException(name); 
+        JsonPatchEntry value = Get(jsonPointer);
+        if (value.Kind != ValueKind.Utf8String) ThrowPropertyNotFoundException(jsonPointer); 
         return value.Value;
     }
 
     // Int32
     public void Set(ReadOnlySpan<byte> name, int value)
     {
-        JsonPatchEntry entry = new JsonPatchEntry(name, value);
+        JsonPatchEntry entry = new(name, value);
         Set(entry);
     }
 
@@ -78,18 +79,32 @@ public partial struct JsonPatch
         return BinaryPrimitives.ReadInt32LittleEndian(value.Value.Span);
     }
 
+    // TODO: can set support json pointer?
     // JSON Object
     public void Set(ReadOnlySpan<byte> name, ReadOnlySpan<byte> json)
     {
-        JsonPatchEntry entry = new JsonPatchEntry(name, json);
+        JsonPatchEntry entry = new(name, json);
         Set(entry);
     }
 
-    public BinaryData GetJson(ReadOnlySpan<byte> name)
+    public BinaryData GetJson(ReadOnlySpan<byte> jsonPointer)
     {
-        JsonPatchEntry value = Get(name);
-        if (value.Kind != ValueKind.Json) ThrowPropertyNotFoundException(name); 
+        JsonPatchEntry value = Get(jsonPointer);
+        if (value.Kind != ValueKind.Json) ThrowPropertyNotFoundException(jsonPointer); 
         return BinaryData.FromBytes(value.Value);
+    }
+
+    // Special (remove, set null, etc)
+    public void Remove(ReadOnlySpan<byte> jsonPointer)
+    {
+        JsonPatchEntry removedEntry = JsonPatchEntry.CreateRemoved(jsonPointer);
+        Set(removedEntry);
+    }
+
+    public void SetNull(ReadOnlySpan<byte> jsonPointer)
+    {
+        JsonPatchEntry nullEntry = JsonPatchEntry.CreateNull(jsonPointer);
+        Set(nullEntry);
     }
 }
 
