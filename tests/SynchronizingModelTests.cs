@@ -28,11 +28,13 @@ public class SimpleModelTests
     }
 
     [Test]
-    public void ArraysCanBeSetThroughJson()
+    public void Arrays()
     {
         SimpleModel model = new();
-        model.Extensions.Set("numbers"u8, "[1.0, 2.0, 3.0]"u8);
-        AssertSerializesTo(model, """{"numbers":[1.0, 2.0, 3.0]}""");
+        model.Extensions.Set("numbers"u8, "[1, 2, 3.0]"u8);
+        AssertSerializesTo(model, """{"numbers":[1, 2, 3.0]}""");
+        int number = model.Extensions.GetInt32("numbers/1"u8);
+        Assert.That(number, Is.EqualTo(2));
     }
 
     private static void AssertSerializesTo(SimpleModel model, string json)
