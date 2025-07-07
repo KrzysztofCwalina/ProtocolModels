@@ -7,10 +7,20 @@ namespace AdditionalProperties;
 public class SimpleModelTests
 {
     [Test]
-    public void Smoke()
+    public void Basics()
     {
         SimpleModel model = new();
+        model.Category = "number facts";
         model.Extensions.Set("category"u8, 42);
+        model.Extensions.Set("json_only"u8, "true");
+        AssertSerializesTo(model, """{"id":0,"names":[],"numbers":[],"category":42,"json_only":"true"}""");
+    }
+
+    [Test]
+    public void ChangeTypeOfClrProperty()
+    {
+        SimpleModel model = new();
+        model.Extensions.Set("category"u8, 42); // public string? Category { get; set; }
 
         int category = model.Extensions.GetInt32("category"u8);
 
@@ -31,22 +41,14 @@ public class SimpleModelTests
     }
 
     [Test]
-    public void Serialization()
-    {
-        SimpleModel model = new();
-        model.Category = "number facts";
-        model.Extensions.Set("category"u8, 42);
-        model.Extensions.Set("json_only"u8, "true");
-        AssertSerializesTo(model, """{"id":0,"names":[],"numbers":[],"category":42,"json_only":"true"}""");
-    }
-
-    [Test]
     public void Arrays()
     {
         SimpleModel model = new();
         model.Extensions.Set("numbers"u8, "[1, 2, 3.0]"u8);
 
         AssertSerializesTo(model, """{"category":null,"id":0,"names":[],"numbers":[1, 2, 3.0]}""");
+
+        // Json Pointer Syntax
         int number = model.Extensions.GetInt32("numbers/1"u8);
         Assert.That(number, Is.EqualTo(2));
     }
