@@ -7,6 +7,11 @@ namespace System.ClientModel.Primitives;
 
 public partial struct JsonPatch
 {
+    public void Remove(ReadOnlySpan<byte> jsonPointer)
+    {
+        throw new NotImplementedException();
+    }
+
     private enum ValueKind : byte
     {
         Json = 1,

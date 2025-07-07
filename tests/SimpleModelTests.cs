@@ -18,6 +18,19 @@ public class SimpleModelTests
     }
 
     [Test]
+    public void RemoveProperties()
+    {
+        SimpleModel model = new();
+        model.Extensions.Set("json_only"u8, "true");
+        model.Extensions.Remove("category"u8);
+        model.Extensions.Remove("id"u8);
+        model.Extensions.Remove("names"u8);
+        model.Extensions.Remove("json_only"u8);
+
+        AssertSerializesTo(model, """{"numbers":[]}""");
+    }
+
+    [Test]
     public void Serialization()
     {
         SimpleModel model = new();
