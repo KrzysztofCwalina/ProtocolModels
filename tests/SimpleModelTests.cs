@@ -50,11 +50,11 @@ public class SimpleModelTests
             "array": [1, 2, 3]
         }
         """u8);
-        int nestedNumber = model.Extensions.GetInt32("nested/a"u8);
+        int nestedNumber = model.Extensions.GetInt32("properties/nested/a"u8);
         Assert.That(nestedNumber, Is.EqualTo(1));
 
-        int arrayNumber = model.Extensions.GetInt32("array/2"u8);
-        Assert.That(arrayNumber, Is.EqualTo(2));
+        int arrayNumber = model.Extensions.GetInt32("properties/array/2"u8);
+        Assert.That(arrayNumber, Is.EqualTo(3));
     }
 
     private static void AssertSerializesTo(SimpleModel model, string json)
