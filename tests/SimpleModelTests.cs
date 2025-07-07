@@ -92,6 +92,7 @@ public class SimpleModelTests
     public void Boolean()
     {
         SimpleModel model = new();
+        model.Extensions.Set("category"u8, 42);
         model.Extensions.Set("json_only"u8, true);
         AssertSerializesTo(model, """{"id":0,"names":[],"numbers":[],"category":42,"json_only":true}""");
     }
