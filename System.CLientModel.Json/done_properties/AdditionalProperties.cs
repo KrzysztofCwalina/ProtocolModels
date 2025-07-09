@@ -62,6 +62,12 @@ public partial struct AdditionalProperties
         return _properties.ContainsKey(nameBytes);
     }
 
+    public bool Contains(byte[] name)
+    {
+        if (_properties == null) return false;
+        return _properties.ContainsKey(name);
+    }
+
     // TODO: can set support json pointer?
     // System.String
     public void Set(ReadOnlySpan<byte> name, string value)
