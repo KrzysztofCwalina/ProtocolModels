@@ -103,8 +103,10 @@ public partial struct AdditionalProperties
         if (encodedValue.Length == 0 || (ValueKind)encodedValue[0] != ValueKind.Utf8String) 
             ThrowPropertyNotFoundException(jsonPointer);
         
-        // Extract string bytes (skip the first byte which is the kind)
-        return Encoding.UTF8.GetString(encodedValue.AsSpan(1));
+        // Parse JSON string representation (skip the first byte which is the kind)
+        ReadOnlySpan<byte> valueBytes = encodedValue.AsSpan(1);
+        string jsonString = Encoding.UTF8.GetString(valueBytes);
+        return JsonSerializer.Deserialize<string>(jsonString) ?? string.Empty;
     }
 
     // Helper method to get raw encoded value bytes
@@ -127,8 +129,13 @@ public partial struct AdditionalProperties
         if (encodedValue.Length == 0 || (ValueKind)encodedValue[0] != ValueKind.Utf8String) 
             ThrowPropertyNotFoundException(jsonPointer);
         
-        // Return the UTF8 bytes (skip the first byte which is the kind)
-        return encodedValue.AsMemory(1);
+        // Parse JSON string representation (skip the first byte which is the kind)
+        ReadOnlySpan<byte> valueBytes = encodedValue.AsSpan(1);
+        string jsonString = Encoding.UTF8.GetString(valueBytes);
+        string actualString = JsonSerializer.Deserialize<string>(jsonString) ?? string.Empty;
+        
+        // Return the actual UTF8 bytes of the string (not the JSON representation)
+        return Encoding.UTF8.GetBytes(actualString);
     }
 
     // Int32
@@ -164,9 +171,10 @@ public partial struct AdditionalProperties
         if (encodedValue.Length == 0 || (ValueKind)encodedValue[0] != ValueKind.Int32) 
             ThrowPropertyNotFoundException(jsonPointer);
         
-        // Extract int32 bytes (skip the first byte which is the kind)
+        // Parse JSON number representation (skip the first byte which is the kind)
         ReadOnlySpan<byte> valueBytes = encodedValue.AsSpan(1);
-        return BinaryPrimitives.ReadInt32LittleEndian(valueBytes);
+        string jsonNumber = Encoding.UTF8.GetString(valueBytes);
+        return int.Parse(jsonNumber);
     }
 
     // TODO: can set support json pointer?

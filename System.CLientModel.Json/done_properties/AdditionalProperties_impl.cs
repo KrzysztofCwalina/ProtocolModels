@@ -55,20 +55,28 @@ public partial struct AdditionalProperties
         switch (value)
         {
             case string s:
-                byte[] stringBytes = Encoding.UTF8.GetBytes(s);
-                byte[] stringResult = new byte[1 + stringBytes.Length];
+                // Store as JSON string representation
+                byte[] jsonStringBytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(s));
+                byte[] stringResult = new byte[1 + jsonStringBytes.Length];
                 stringResult[0] = (byte)ValueKind.Utf8String;
-                stringBytes.CopyTo(stringResult, 1);
+                jsonStringBytes.CopyTo(stringResult, 1);
                 return stringResult;
 
             case int i:
-                byte[] intResult = new byte[5]; // 1 byte for kind + 4 bytes for int32
+                // Store as JSON number representation
+                byte[] jsonIntBytes = Encoding.UTF8.GetBytes(i.ToString());
+                byte[] intResult = new byte[1 + jsonIntBytes.Length];
                 intResult[0] = (byte)ValueKind.Int32;
-                BinaryPrimitives.WriteInt32LittleEndian(intResult.AsSpan(1), i);
+                jsonIntBytes.CopyTo(intResult, 1);
                 return intResult;
 
             case bool b:
-                return new byte[] { (byte)(b ? ValueKind.BooleanTrue : ValueKind.BooleanFalse) };
+                // Store as JSON boolean representation
+                byte[] jsonBoolBytes = Encoding.UTF8.GetBytes(b ? "true" : "false");
+                byte[] boolResult = new byte[1 + jsonBoolBytes.Length];
+                boolResult[0] = (byte)(b ? ValueKind.BooleanTrue : ValueKind.BooleanFalse);
+                jsonBoolBytes.CopyTo(boolResult, 1);
+                return boolResult;
 
             case byte[] jsonBytes:
                 byte[] jsonResult = new byte[1 + jsonBytes.Length];
@@ -80,7 +88,12 @@ public partial struct AdditionalProperties
                 return new byte[] { (byte)ValueKind.Removed };
 
             case NullValue:
-                return new byte[] { (byte)ValueKind.Null };
+                // Store as JSON null representation
+                byte[] jsonNullBytes = Encoding.UTF8.GetBytes("null");
+                byte[] nullResult = new byte[1 + jsonNullBytes.Length];
+                nullResult[0] = (byte)ValueKind.Null;
+                jsonNullBytes.CopyTo(nullResult, 1);
+                return nullResult;
 
             default:
                 throw new NotSupportedException($"Unsupported value type: {value?.GetType()}");
@@ -99,18 +112,20 @@ public partial struct AdditionalProperties
         switch (kind)
         {
             case ValueKind.Utf8String:
-                return Encoding.UTF8.GetString(valueBytes);
+                // Parse JSON string representation
+                string jsonString = Encoding.UTF8.GetString(valueBytes);
+                return JsonSerializer.Deserialize<string>(jsonString) ?? string.Empty;
 
             case ValueKind.Int32:
-                if (valueBytes.Length != 4)
-                    throw new ArgumentException("Invalid int32 encoding");
-                return BinaryPrimitives.ReadInt32LittleEndian(valueBytes);
+                // Parse JSON number representation
+                string jsonInt = Encoding.UTF8.GetString(valueBytes);
+                return int.Parse(jsonInt);
 
             case ValueKind.BooleanTrue:
-                return true;
-
             case ValueKind.BooleanFalse:
-                return false;
+                // Parse JSON boolean representation
+                string jsonBool = Encoding.UTF8.GetString(valueBytes);
+                return bool.Parse(jsonBool);
 
             case ValueKind.Json:
                 return valueBytes.ToArray();
@@ -176,17 +191,23 @@ public partial struct AdditionalProperties
         switch (kind)
         {
             case ValueKind.Utf8String:
-                writer.WriteString(nameBytes, valueBytes);
+                // valueBytes contains JSON string representation, parse and write properly
+                string jsonStringRepr = Encoding.UTF8.GetString(valueBytes);
+                string actualString = JsonSerializer.Deserialize<string>(jsonStringRepr) ?? string.Empty;
+                writer.WriteString(nameBytes, actualString);
                 break;
             case ValueKind.Int32:
-                int intValue = BinaryPrimitives.ReadInt32LittleEndian(valueBytes);
+                // valueBytes contains JSON number representation
+                string jsonIntRepr = Encoding.UTF8.GetString(valueBytes);
+                int intValue = int.Parse(jsonIntRepr);
                 writer.WriteNumber(nameBytes, intValue);
                 break;
             case ValueKind.BooleanTrue:
-                writer.WriteBoolean(nameBytes, true);
-                break;
             case ValueKind.BooleanFalse:
-                writer.WriteBoolean(nameBytes, false);
+                // valueBytes contains JSON boolean representation
+                string jsonBoolRepr = Encoding.UTF8.GetString(valueBytes);
+                bool boolValue = bool.Parse(jsonBoolRepr);
+                writer.WriteBoolean(nameBytes, boolValue);
                 break;
             case ValueKind.Json:
                 writer.WritePropertyName(nameBytes);

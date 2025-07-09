@@ -218,4 +218,42 @@ public class AdditionalPropertiesTests
         string json = Encoding.UTF8.GetString(stream.ToArray());
         Assert.That(json, Is.EqualTo("{}"));
     }
+    
+    [Test]
+    public void ValuesStoredAsJsonRepresentation()
+    {
+        AdditionalPropertiesType props = new();
+        
+        // Test integer stored as JSON
+        props.Set("age"u8, 42);
+        Assert.That(props.GetInt32("age"u8), Is.EqualTo(42));
+        
+        // Test string stored as JSON (with special characters)
+        props.Set("message"u8, "Hello \"World\"");
+        Assert.That(props.GetString("message"u8), Is.EqualTo("Hello \"World\""));
+        
+        // Test boolean stored as JSON
+        props.Set("active"u8, true);
+        props.Set("inactive"u8, false);
+        
+        // Test null stored as JSON
+        props.SetNull("nullValue"u8);
+        
+        // Test serialization to ensure everything works end-to-end
+        using var stream = new MemoryStream();
+        using var writer = new Utf8JsonWriter(stream);
+        
+        writer.WriteStartObject();
+        props.Write(writer);
+        writer.WriteEndObject();
+        
+        writer.Flush();
+        
+        string json = Encoding.UTF8.GetString(stream.ToArray());
+        Assert.That(json, Does.Contain("\"age\":42"));
+        Assert.That(json, Does.Contain("\"message\":\"Hello \\u0022World\\u0022\""));  // JSON uses Unicode escapes
+        Assert.That(json, Does.Contain("\"active\":true"));
+        Assert.That(json, Does.Contain("\"inactive\":false"));
+        Assert.That(json, Does.Contain("\"nullValue\":null"));
+    }
 }
