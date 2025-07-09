@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text;
 using System.IO;
 using System.Collections.Generic;
+using System.Reflection;
 using AdditionalPropertiesType = System.ClientModel.Primitives.DictionaryStore;
 
 namespace AdditionalProperties.Tests;
@@ -217,5 +218,94 @@ public class AdditionalPropertiesTests
         
         string json = Encoding.UTF8.GetString(stream.ToArray());
         Assert.That(json, Is.EqualTo("{}"));
+    }
+    
+    [Test]
+    public void ValuesStoredAsJsonRepresentation()
+    {
+        AdditionalPropertiesType props = new();
+        
+        // Test integer stored as JSON
+        props.Set("age"u8, 42);
+        Assert.That(props.GetInt32("age"u8), Is.EqualTo(42));
+        
+        // Test string stored as JSON (with special characters)
+        props.Set("message"u8, "Hello \"World\"");
+        Assert.That(props.GetString("message"u8), Is.EqualTo("Hello \"World\""));
+        
+        // Test boolean stored as JSON
+        props.Set("active"u8, true);
+        props.Set("inactive"u8, false);
+        
+        // Test null stored as JSON
+        props.SetNull("nullValue"u8);
+        
+        // Test serialization to ensure everything works end-to-end
+        using var stream = new MemoryStream();
+        using var writer = new Utf8JsonWriter(stream);
+        
+        writer.WriteStartObject();
+        props.Write(writer);
+        writer.WriteEndObject();
+        
+        writer.Flush();
+        
+        string json = Encoding.UTF8.GetString(stream.ToArray());
+        Assert.That(json, Does.Contain("\"age\":42"));
+        Assert.That(json, Does.Contain("\"message\":\"Hello \\u0022World\\u0022\""));  // JSON uses Unicode escapes
+        Assert.That(json, Does.Contain("\"active\":true"));
+        Assert.That(json, Does.Contain("\"inactive\":false"));
+        Assert.That(json, Does.Contain("\"nullValue\":null"));
+    }
+    
+    [Test]
+    public void VerifyInternalJsonStorage()
+    {
+        AdditionalPropertiesType props = new();
+        
+        // Set some values
+        props.Set("number"u8, 42);
+        props.Set("text"u8, "hello");
+        props.Set("flag"u8, true);
+        
+        // Use reflection to inspect the internal storage
+        var propertiesField = typeof(AdditionalPropertiesType).GetField("_properties", 
+            BindingFlags.NonPublic | BindingFlags.Instance);
+        Assert.That(propertiesField, Is.Not.Null, "Should have _properties field");
+        
+        var propertiesDict = propertiesField.GetValue(props) as 
+            System.Collections.Generic.Dictionary<byte[], byte[]>;
+        Assert.That(propertiesDict, Is.Not.Null, "Should have dictionary");
+        Assert.That(propertiesDict.Count, Is.EqualTo(3), "Should have 3 entries");
+        
+        // Check that values are stored as JSON (after the ValueKind byte)
+        foreach (var kvp in propertiesDict)
+        {
+            string propertyName = Encoding.UTF8.GetString(kvp.Key);
+            byte[] encodedValue = kvp.Value;
+            
+            Assert.That(encodedValue.Length, Is.GreaterThan(1), 
+                $"Property {propertyName} should have value data after kind byte");
+            
+            // Skip the first byte (ValueKind) and get the actual stored value
+            byte[] valueBytes = encodedValue.AsSpan(1).ToArray();
+            string storedValue = Encoding.UTF8.GetString(valueBytes);
+            
+            switch (propertyName)
+            {
+                case "number":
+                    Assert.That(storedValue, Is.EqualTo("42"), 
+                        "Number should be stored as JSON number string");
+                    break;
+                case "text":
+                    Assert.That(storedValue, Is.EqualTo("\"hello\""), 
+                        "String should be stored as JSON string with quotes");
+                    break;
+                case "flag":
+                    Assert.That(storedValue, Is.EqualTo("true"), 
+                        "Boolean should be stored as JSON boolean string");
+                    break;
+            }
+        }
     }
 }
