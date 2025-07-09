@@ -14,6 +14,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\src\ProtocolModels.csproj" />
+    <ProjectReference Include="..\System.CLientModel.Json\System.CLientModel.Json.csproj" />
   </ItemGroup>
 
 </Project>

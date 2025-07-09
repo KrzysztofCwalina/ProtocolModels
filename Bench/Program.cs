@@ -11,6 +11,7 @@ public class BuifferVsDictionary
 {
     Dictionary<string, int> _dictionary = new();
     ExtensionProperties _buffer = new();
+    AdditionalProperties _additionalProperties = new();
     byte[] _sequential;
     int _sequentialIndex;
 
@@ -26,6 +27,7 @@ public class BuifferVsDictionary
             _dictionary.Add($"P{i}", i);
             byte[] nextName = Encoding.UTF8.GetBytes($"P{i}");
             _buffer.Set(nextName, i);
+            _additionalProperties.Set(nextName, i);
             nextName.CopyTo(_sequential.AsSpan(_sequentialIndex));
             _sequentialIndex += nextName.Length;
             _sequential[_sequentialIndex] = 0; // delimiter
@@ -41,6 +43,9 @@ public class BuifferVsDictionary
 
     [Benchmark]
     public bool Buffer() => _buffer.Contains(maxUtf8);
+
+    [Benchmark]
+    public bool AdditionalProperties() => _additionalProperties.Contains(maxUtf8);
 
     [Benchmark]
     public bool Sequential() => _sequential.AsSpan(0, _sequentialIndex).IndexOf(maxUtf8) != -1;
@@ -59,5 +64,13 @@ public class BuifferVsDictionary
         ExtensionProperties buffer = new();
         buffer.Set("P1"u8, max);
         return buffer.Contains(maxUtf8);
+    }
+
+    [Benchmark]
+    public bool AllocateAdditionalPropertiesAndAdd()
+    {
+        AdditionalProperties additionalProps = new();
+        additionalProps.Set("P1"u8, max);
+        return additionalProps.Contains(maxUtf8);
     }
 }
