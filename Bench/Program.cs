@@ -10,8 +10,8 @@ BenchmarkRunner.Run<BuifferVsDictionary>();
 public class BuifferVsDictionary
 {
     Dictionary<string, int> _dictionary = new();
-    RecordStore _buffer = new();
-    DictionaryStore _additionalProperties = new();
+    RecordStore _recordStore = new();
+    DictionaryStore _dictionaryStore = new();
     byte[] _sequential;
     int _sequentialIndex;
 
@@ -26,8 +26,8 @@ public class BuifferVsDictionary
         for (int i = 1; i <= max; i++) {
             _dictionary.Add($"P{i}", i);
             byte[] nextName = Encoding.UTF8.GetBytes($"P{i}");
-            _buffer.Set(nextName, i);
-            _additionalProperties.Set(nextName, i);
+            _recordStore.Set(nextName, i);
+            _dictionaryStore.Set(nextName, i);
             nextName.CopyTo(_sequential.AsSpan(_sequentialIndex));
             _sequentialIndex += nextName.Length;
             _sequential[_sequentialIndex] = 0; // delimiter
@@ -42,10 +42,10 @@ public class BuifferVsDictionary
     public bool RawDictionaryContains() => _dictionary.ContainsKey(maxString);
 
     [Benchmark]
-    public bool CustomRecordStoreContains() => _buffer.Contains(maxUtf8);
+    public bool CustomRecordStoreContains() => _recordStore.Contains(maxUtf8);
 
     [Benchmark]
-    public bool DictionaryBasedStoreContains() => _additionalProperties.Contains(maxUtf8);
+    public bool DictionaryBasedStoreContains() => _dictionaryStore.Contains(maxUtf8);
 
     [Benchmark]
     public bool SequentialNamesContains() => _sequential.AsSpan(0, _sequentialIndex).IndexOf(maxUtf8) != -1;

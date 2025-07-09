@@ -23,6 +23,52 @@ public partial struct DictionaryStore
         BooleanFalse = 7,
     }
 
+    // Singleton arrays for common values
+    private static readonly byte[] s_removedValueArray = new byte[] { (byte)ValueKind.Removed };
+    private static readonly byte[] s_nullValueArray;
+    private static readonly byte[] s_trueBooleanArray;
+    private static readonly byte[] s_falseBooleanArray;
+
+    // Static constructor to initialize singleton arrays
+    static DictionaryStore()
+    {
+        // Initialize null value array
+        using (var stream = new MemoryStream(6))
+        {
+            stream.WriteByte((byte)ValueKind.Null);
+            using (var writer = new Utf8JsonWriter(stream))
+            {
+                writer.WriteNullValue();
+                writer.Flush();
+            }
+            s_nullValueArray = stream.ToArray();
+        }
+
+        // Initialize true boolean array
+        using (var stream = new MemoryStream(10))
+        {
+            stream.WriteByte((byte)ValueKind.BooleanTrue);
+            using (var writer = new Utf8JsonWriter(stream))
+            {
+                writer.WriteBooleanValue(true);
+                writer.Flush();
+            }
+            s_trueBooleanArray = stream.ToArray();
+        }
+
+        // Initialize false boolean array
+        using (var stream = new MemoryStream(10))
+        {
+            stream.WriteByte((byte)ValueKind.BooleanFalse);
+            using (var writer = new Utf8JsonWriter(stream))
+            {
+                writer.WriteBooleanValue(false);
+                writer.Flush();
+            }
+            s_falseBooleanArray = stream.ToArray();
+        }
+    }
+
     // Dictionary-based storage using UTF8 byte arrays as keys and encoded byte arrays as values
     private Dictionary<byte[], byte[]>? _properties;
 
@@ -55,28 +101,42 @@ public partial struct DictionaryStore
         switch (value)
         {
             case string s:
-                // Store as JSON string representation
-                byte[] jsonStringBytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(s));
-                byte[] stringResult = new byte[1 + jsonStringBytes.Length];
-                stringResult[0] = (byte)ValueKind.Utf8String;
-                jsonStringBytes.CopyTo(stringResult, 1);
-                return stringResult;
+                // Estimate the buffer size for the string and use Utf8JsonWriter with a pre-allocated buffer
+                int estimatedSize = Encoding.UTF8.GetByteCount(s) + 10; // Add extra space for JSON formatting and value kind
+                using (var stream = new MemoryStream(estimatedSize)) 
+                {
+                    // Write the ValueKind byte and advance the position
+                    stream.WriteByte((byte)ValueKind.Utf8String);
+                    
+                    // Now write the JSON starting at position 1
+                    using (var writer = new Utf8JsonWriter(stream))
+                    {
+                        writer.WriteStringValue(s);
+                        writer.Flush();
+                    }
+                    return stream.ToArray();
+                }
 
             case int i:
-                // Store as JSON number representation
-                byte[] jsonIntBytes = Encoding.UTF8.GetBytes(i.ToString());
-                byte[] intResult = new byte[1 + jsonIntBytes.Length];
-                intResult[0] = (byte)ValueKind.Int32;
-                jsonIntBytes.CopyTo(intResult, 1);
-                return intResult;
+                // Estimate the buffer size for the integer and use Utf8JsonWriter with a pre-allocated buffer
+                const int intEstimatedSize = 20; // Enough for any 32-bit integer
+                using (var stream = new MemoryStream(intEstimatedSize)) 
+                {
+                    // Write the ValueKind byte and advance the position
+                    stream.WriteByte((byte)ValueKind.Int32);
+                    
+                    // Now write the JSON starting at position 1
+                    using (var writer = new Utf8JsonWriter(stream))
+                    {
+                        writer.WriteNumberValue(i);
+                        writer.Flush();
+                    }
+                    return stream.ToArray();
+                }
 
             case bool b:
-                // Store as JSON boolean representation
-                byte[] jsonBoolBytes = Encoding.UTF8.GetBytes(b ? "true" : "false");
-                byte[] boolResult = new byte[1 + jsonBoolBytes.Length];
-                boolResult[0] = (byte)(b ? ValueKind.BooleanTrue : ValueKind.BooleanFalse);
-                jsonBoolBytes.CopyTo(boolResult, 1);
-                return boolResult;
+                // Use singleton arrays for boolean values
+                return b ? s_trueBooleanArray : s_falseBooleanArray;
 
             case byte[] jsonBytes:
                 byte[] jsonResult = new byte[1 + jsonBytes.Length];
@@ -85,15 +145,12 @@ public partial struct DictionaryStore
                 return jsonResult;
 
             case RemovedValue:
-                return new byte[] { (byte)ValueKind.Removed };
+                // Use singleton array for removed value
+                return s_removedValueArray;
 
             case NullValue:
-                // Store as JSON null representation
-                byte[] jsonNullBytes = Encoding.UTF8.GetBytes("null");
-                byte[] nullResult = new byte[1 + jsonNullBytes.Length];
-                nullResult[0] = (byte)ValueKind.Null;
-                jsonNullBytes.CopyTo(nullResult, 1);
-                return nullResult;
+                // Use singleton array for null value
+                return s_nullValueArray;
 
             default:
                 throw new NotSupportedException($"Unsupported value type: {value?.GetType()}");
@@ -112,9 +169,13 @@ public partial struct DictionaryStore
         switch (kind)
         {
             case ValueKind.Utf8String:
-                // Parse JSON string representation
-                string jsonString = Encoding.UTF8.GetString(valueBytes);
-                return JsonSerializer.Deserialize<string>(jsonString) ?? string.Empty;
+                // Parse JSON string representation using Utf8JsonReader
+                Utf8JsonReader reader = new Utf8JsonReader(valueBytes);
+                if (reader.Read() && reader.TokenType == JsonTokenType.String)
+                {
+                    return reader.GetString() ?? string.Empty;
+                }
+                throw new FormatException("Invalid JSON string format.");
 
             case ValueKind.Int32:
                 // Parse JSON number representation
@@ -186,39 +247,47 @@ public partial struct DictionaryStore
 
         ValueKind kind = (ValueKind)encodedValue[0];
         ReadOnlySpan<byte> valueBytes = encodedValue.AsSpan(1);
-        ReadOnlySpan<byte> nameBytes = Encoding.UTF8.GetBytes(propertyName);
+
+        writer.WritePropertyName(propertyName);
 
         switch (kind)
         {
             case ValueKind.Utf8String:
                 // valueBytes contains JSON string representation, parse and write properly
-                string jsonStringRepr = Encoding.UTF8.GetString(valueBytes);
-                string actualString = JsonSerializer.Deserialize<string>(jsonStringRepr) ?? string.Empty;
-                writer.WriteString(nameBytes, actualString);
+                writer.WriteStringValue(valueBytes);
                 break;
+
             case ValueKind.Int32:
                 // valueBytes contains JSON number representation
-                string jsonIntRepr = Encoding.UTF8.GetString(valueBytes);
-                int intValue = int.Parse(jsonIntRepr);
-                writer.WriteNumber(nameBytes, intValue);
+                if (int.TryParse(Encoding.UTF8.GetString(valueBytes), out int intValue))
+                {
+                    writer.WriteNumberValue(intValue);
+                }
+                else
+                {
+                    throw new FormatException("Invalid integer format in encoded value.");
+                }
                 break;
+
             case ValueKind.BooleanTrue:
             case ValueKind.BooleanFalse:
                 // valueBytes contains JSON boolean representation
-                string jsonBoolRepr = Encoding.UTF8.GetString(valueBytes);
-                bool boolValue = bool.Parse(jsonBoolRepr);
-                writer.WriteBoolean(nameBytes, boolValue);
+                writer.WriteBooleanValue(kind == ValueKind.BooleanTrue);
                 break;
+
             case ValueKind.Json:
-                writer.WritePropertyName(nameBytes);
-                writer.WriteRawValue(valueBytes);
+                // Write raw JSON value
+                writer.WriteRawValue(valueBytes, skipInputValidation: true);
                 break;
+
             case ValueKind.Null:
-                writer.WriteNull(nameBytes);
+                writer.WriteNullValue();
                 break;
+
             case ValueKind.Removed:
                 // Skip removed properties during serialization
                 break;
+
             default:
                 throw new NotSupportedException($"Unsupported value kind: {kind}");
         }
