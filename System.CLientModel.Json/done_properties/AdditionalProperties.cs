@@ -86,28 +86,49 @@ public partial struct AdditionalProperties
             ReadOnlySpan<byte> baseName = jsonPointer.Slice(0, slashIndex);
             ReadOnlySpan<byte> pointer = jsonPointer.Slice(slashIndex);
             
-            // Get the JSON value for the base property
-            object baseValue = Get(baseName);
-            if (baseValue is not byte[]) ThrowPropertyNotFoundException(jsonPointer);
-            byte[] jsonBytes = (byte[])baseValue;
+            // Get the encoded value for the base property
+            byte[] baseEncodedValue = GetEncodedValue(baseName);
+            if (baseEncodedValue.Length == 0 || (ValueKind)baseEncodedValue[0] != ValueKind.Json) 
+                ThrowPropertyNotFoundException(jsonPointer);
+            
+            // Extract JSON bytes (skip the first byte which is the kind)
+            byte[] jsonBytes = baseEncodedValue.AsSpan(1).ToArray();
             
             // Use JsonPointer to navigate to the specific element
             return JsonPointer.GetString(jsonBytes, pointer) ?? string.Empty;
         }
         
         // Direct property access
-        object value = Get(jsonPointer);
-        if (value is not string) ThrowPropertyNotFoundException(jsonPointer);
-        string stringValue = (string)value; 
-        return stringValue;   
+        byte[] encodedValue = GetEncodedValue(jsonPointer);
+        if (encodedValue.Length == 0 || (ValueKind)encodedValue[0] != ValueKind.Utf8String) 
+            ThrowPropertyNotFoundException(jsonPointer);
+        
+        // Extract string bytes (skip the first byte which is the kind)
+        return Encoding.UTF8.GetString(encodedValue.AsSpan(1));
+    }
+
+    // Helper method to get raw encoded value bytes
+    private byte[] GetEncodedValue(ReadOnlySpan<byte> name)
+    {
+        if (_properties == null) return Array.Empty<byte>();
+        
+        byte[] nameBytes = name.ToArray();
+        if (!_properties.TryGetValue(nameBytes, out byte[]? encodedValue))
+        {
+            return Array.Empty<byte>();
+        }
+        
+        return encodedValue!;
     }
     
     public ReadOnlyMemory<byte> GetStringUtf8(ReadOnlySpan<byte> jsonPointer)
     {
-        object value = Get(jsonPointer);
-        if (value is not string) ThrowPropertyNotFoundException(jsonPointer);
-        string stringValue = (string)value; 
-        return System.Text.Encoding.UTF8.GetBytes(stringValue);
+        byte[] encodedValue = GetEncodedValue(jsonPointer);
+        if (encodedValue.Length == 0 || (ValueKind)encodedValue[0] != ValueKind.Utf8String) 
+            ThrowPropertyNotFoundException(jsonPointer);
+        
+        // Return the UTF8 bytes (skip the first byte which is the kind)
+        return encodedValue.AsMemory(1);
     }
 
     // Int32
@@ -126,20 +147,26 @@ public partial struct AdditionalProperties
             ReadOnlySpan<byte> baseName = jsonPointer.Slice(0, slashIndex);
             ReadOnlySpan<byte> pointer = jsonPointer.Slice(slashIndex);
             
-            // Get the JSON value for the base property
-            object baseValue = Get(baseName);
-            if (baseValue is not byte[]) ThrowPropertyNotFoundException(jsonPointer);
-            byte[] jsonBytes = (byte[])baseValue;
+            // Get the encoded value for the base property
+            byte[] baseEncodedValue = GetEncodedValue(baseName);
+            if (baseEncodedValue.Length == 0 || (ValueKind)baseEncodedValue[0] != ValueKind.Json) 
+                ThrowPropertyNotFoundException(jsonPointer);
+            
+            // Extract JSON bytes (skip the first byte which is the kind)
+            byte[] jsonBytes = baseEncodedValue.AsSpan(1).ToArray();
             
             // Use JsonPointer to navigate to the specific element
             return JsonPointer.GetInt32(jsonBytes, pointer);
         }
         
         // Direct property access
-        object value = Get(jsonPointer);
-        if (value is not int) ThrowPropertyNotFoundException(jsonPointer);
-        int intValue = (int)value;
-        return intValue;
+        byte[] encodedValue = GetEncodedValue(jsonPointer);
+        if (encodedValue.Length == 0 || (ValueKind)encodedValue[0] != ValueKind.Int32) 
+            ThrowPropertyNotFoundException(jsonPointer);
+        
+        // Extract int32 bytes (skip the first byte which is the kind)
+        ReadOnlySpan<byte> valueBytes = encodedValue.AsSpan(1);
+        return BinaryPrimitives.ReadInt32LittleEndian(valueBytes);
     }
 
     // TODO: can set support json pointer?
@@ -152,9 +179,12 @@ public partial struct AdditionalProperties
 
     public BinaryData GetJson(ReadOnlySpan<byte> jsonPointer)
     {
-        object value = Get(jsonPointer);
-        if (value is not byte[]) ThrowPropertyNotFoundException(jsonPointer);
-        byte[] jsonBytes = (byte[])value; 
+        byte[] encodedValue = GetEncodedValue(jsonPointer);
+        if (encodedValue.Length == 0 || (ValueKind)encodedValue[0] != ValueKind.Json) 
+            ThrowPropertyNotFoundException(jsonPointer);
+        
+        // Extract JSON bytes (skip the first byte which is the kind)
+        byte[] jsonBytes = encodedValue.AsSpan(1).ToArray();
         return BinaryData.FromBytes(jsonBytes);
     }
 
