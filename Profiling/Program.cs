@@ -1,7 +1,7 @@
 ﻿
 using System.ClientModel.Primitives;
 
-ExtensionProperties _buffer = new();
+RecordStore _buffer = new();
 _buffer.Set("P1"u8, 5);
 
 Console.WriteLine("PRESS ENTER");

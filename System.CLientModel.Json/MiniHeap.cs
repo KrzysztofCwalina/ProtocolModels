@@ -1,5 +1,5 @@
 ﻿using System;
-using static System.ClientModel.Primitives.ExtensionProperties;
+using static System.ClientModel.Primitives.RecordStore;
 
 namespace System.CLientModel.Json;
 public struct MiniHeap

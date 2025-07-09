@@ -7,7 +7,7 @@ using System.Text.Json;
 
 namespace System.ClientModel.Primitives;
 
-public partial struct AdditionalProperties
+public partial struct DictionaryStore
 {
     // Marker classes for special values
     internal sealed class RemovedValue

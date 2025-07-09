@@ -5,7 +5,7 @@ using System.Text.Json;
 using System.Text;
 using System.IO;
 using System.Collections.Generic;
-using AdditionalPropertiesType = System.ClientModel.Primitives.AdditionalProperties;
+using AdditionalPropertiesType = System.ClientModel.Primitives.DictionaryStore;
 
 namespace AdditionalProperties.Tests;
 
@@ -17,7 +17,7 @@ public class SemanticCompatibilityTests
     {
         // Create both types
         AdditionalPropertiesType additionalProps = new();
-        ExtensionProperties extensionProps = new();
+        RecordStore extensionProps = new();
         
         // Set same values
         additionalProps.Set("name"u8, "John");
@@ -66,7 +66,7 @@ public class SemanticCompatibilityTests
     public void JsonPointerCompatibility()
     {
         AdditionalPropertiesType additionalProps = new();
-        ExtensionProperties extensionProps = new();
+        RecordStore extensionProps = new();
         
         string jsonData = """{"user": {"name": "John", "age": 30}}""";
         ReadOnlySpan<byte> jsonBytes = Encoding.UTF8.GetBytes(jsonData);

@@ -5,7 +5,7 @@ using System.Text.Json;
 using System.Text;
 using System.IO;
 using System.Collections.Generic;
-using AdditionalPropertiesType = System.ClientModel.Primitives.AdditionalProperties;
+using AdditionalPropertiesType = System.ClientModel.Primitives.DictionaryStore;
 
 namespace AdditionalProperties.Tests;
 

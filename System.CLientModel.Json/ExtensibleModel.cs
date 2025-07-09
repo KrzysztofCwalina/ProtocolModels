@@ -7,7 +7,7 @@ namespace System.ClientModel.Primitives;
 // TODO: will this work for AOT?
 public abstract class ExtensibleModel<T> : JsonModel<T>, IExtensibleModel
 {
-    private ExtensionProperties additionalProperties = new();
+    private RecordStore additionalProperties = new();
 
     // method to access and manipulate model properties (whether CLR or JSON)
 
