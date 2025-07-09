@@ -10,14 +10,17 @@ namespace System.ClientModel.Primitives;
 public partial struct AdditionalProperties
 {
     public bool Contains(ReadOnlySpan<byte> name)
-        => IndexOf(name) >= 0;
+    {
+        if (_properties == null) return false;
+        string nameStr = System.Text.Encoding.UTF8.GetString(name);
+        return _properties.ContainsKey(nameStr);
+    }
 
     // TODO: can set support json pointer?
     // System.String
     public void Set(ReadOnlySpan<byte> name, string value)
     {  
-        PropertyValue entry = new(value);
-        Set(name, entry);
+        Set(name, (object)value);
     }
 
     // TODO: all these methods should take JSON pointer, not just property names
@@ -32,31 +35,33 @@ public partial struct AdditionalProperties
             ReadOnlySpan<byte> pointer = jsonPointer.Slice(slashIndex);
             
             // Get the JSON value for the base property
-            PropertyValue baseValue = Get(baseName);
-            if (baseValue.Kind != ValueKind.Json) ThrowPropertyNotFoundException(jsonPointer);
+            object baseValue = Get(baseName);
+            if (baseValue is not byte[]) ThrowPropertyNotFoundException(jsonPointer);
+            byte[] jsonBytes = (byte[])baseValue;
             
             // Use JsonPointer to navigate to the specific element
-            return JsonPointer.GetString(baseValue.JsonBytes.Span, pointer) ?? string.Empty;
+            return JsonPointer.GetString(jsonBytes, pointer) ?? string.Empty;
         }
         
         // Direct property access
-        PropertyValue value = Get(jsonPointer);
-        if (value.Kind != ValueKind.Utf8String) ThrowPropertyNotFoundException(jsonPointer); 
-        return value.StringValue;   
+        object value = Get(jsonPointer);
+        if (value is not string) ThrowPropertyNotFoundException(jsonPointer);
+        string stringValue = (string)value; 
+        return stringValue;   
     }
     
     public ReadOnlyMemory<byte> GetStringUtf8(ReadOnlySpan<byte> jsonPointer)
     {
-        PropertyValue value = Get(jsonPointer);
-        if (value.Kind != ValueKind.Utf8String) ThrowPropertyNotFoundException(jsonPointer); 
-        return value.Utf8Bytes;
+        object value = Get(jsonPointer);
+        if (value is not string) ThrowPropertyNotFoundException(jsonPointer);
+        string stringValue = (string)value; 
+        return System.Text.Encoding.UTF8.GetBytes(stringValue);
     }
 
     // Int32
     public void Set(ReadOnlySpan<byte> name, int value)
     {
-        PropertyValue entry = new(value);
-        Set(name, entry);
+        Set(name, (object)value);
     }
 
     public int GetInt32(ReadOnlySpan<byte> jsonPointer)
@@ -70,50 +75,50 @@ public partial struct AdditionalProperties
             ReadOnlySpan<byte> pointer = jsonPointer.Slice(slashIndex);
             
             // Get the JSON value for the base property
-            PropertyValue baseValue = Get(baseName);
-            if (baseValue.Kind != ValueKind.Json) ThrowPropertyNotFoundException(jsonPointer);
+            object baseValue = Get(baseName);
+            if (baseValue is not byte[]) ThrowPropertyNotFoundException(jsonPointer);
+            byte[] jsonBytes = (byte[])baseValue;
             
             // Use JsonPointer to navigate to the specific element
-            return JsonPointer.GetInt32(baseValue.JsonBytes.Span, pointer);
+            return JsonPointer.GetInt32(jsonBytes, pointer);
         }
         
         // Direct property access
-        PropertyValue value = Get(jsonPointer);
-        if (value.Kind != ValueKind.Int32) ThrowPropertyNotFoundException(jsonPointer);
-        return value.Int32Value;
+        object value = Get(jsonPointer);
+        if (value is not int) ThrowPropertyNotFoundException(jsonPointer);
+        int intValue = (int)value;
+        return intValue;
     }
 
     // TODO: can set support json pointer?
     // JSON Object
     public void Set(ReadOnlySpan<byte> name, ReadOnlySpan<byte> json)
     {
-        PropertyValue entry = new(json);
-        Set(name, entry);
+        byte[] jsonBytes = json.ToArray();
+        Set(name, (object)jsonBytes);
     }
 
     public BinaryData GetJson(ReadOnlySpan<byte> jsonPointer)
     {
-        PropertyValue value = Get(jsonPointer);
-        if (value.Kind != ValueKind.Json) ThrowPropertyNotFoundException(jsonPointer); 
-        return BinaryData.FromBytes(value.JsonBytes);
+        object value = Get(jsonPointer);
+        if (value is not byte[]) ThrowPropertyNotFoundException(jsonPointer);
+        byte[] jsonBytes = (byte[])value; 
+        return BinaryData.FromBytes(jsonBytes);
     }
 
     public void Set(ReadOnlySpan<byte> name, bool value)
     {
-        PropertyValue entry = new(value);
-        Set(name, entry);
+        Set(name, (object)value);
     }
 
     // Special (remove, set null, etc)
     public void Remove(ReadOnlySpan<byte> jsonPointer)
     {
-        PropertyValue removedEntry = PropertyValue.CreateRemoved();
-        Set(jsonPointer, removedEntry);
+        Set(jsonPointer, RemovedValue.Instance);
     }
 
     public void SetNull(ReadOnlySpan<byte> jsonPointer)
     {
-        PropertyValue nullEntry = PropertyValue.CreateNull();
-        Set(jsonPointer, nullEntry);
+        Set(jsonPointer, NullValue.Instance);
     }
 }

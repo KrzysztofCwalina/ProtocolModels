@@ -11,37 +11,30 @@ namespace System.ClientModel.Primitives;
 public partial struct AdditionalProperties
 {
     // Dictionary-based storage instead of PropertyRecord[]
-    private Dictionary<string, PropertyValue>? _properties;
+    private Dictionary<string, object>? _properties;
 
-    private int IndexOf(ReadOnlySpan<byte> name)
-    {
-        if (_properties == null) return -1;
-        string nameStr = Encoding.UTF8.GetString(name);
-        return _properties.ContainsKey(nameStr) ? 1 : -1; // Return 1 if found, -1 if not (mimicking array behavior)
-    }
-
-    private void Set(ReadOnlySpan<byte> name, PropertyValue value)
+    private void Set(ReadOnlySpan<byte> name, object value)
     {
         if (_properties == null)
         {
-            _properties = new Dictionary<string, PropertyValue>();
+            _properties = new Dictionary<string, object>();
         }
         
         string nameStr = Encoding.UTF8.GetString(name);
         _properties[nameStr] = value;
     }
 
-    private PropertyValue Get(ReadOnlySpan<byte> name)
+    private object Get(ReadOnlySpan<byte> name)
     {
         if (_properties == null) ThrowPropertyNotFoundException(name);
         
         string nameStr = Encoding.UTF8.GetString(name);
-        if (!_properties.TryGetValue(nameStr, out PropertyValue value))
+        if (!_properties.TryGetValue(nameStr, out object? value))
         {
             ThrowPropertyNotFoundException(name);
         }
         
-        return value;
+        return value!;
     }
 
     [EditorBrowsable(EditorBrowsableState.Never)]
@@ -51,7 +44,7 @@ public partial struct AdditionalProperties
         
         foreach (var kvp in _properties)
         {
-            kvp.Value.WriteAsJson(writer, kvp.Key);
+            WriteObjectAsJson(writer, kvp.Key, kvp.Value);
         }
     }
 
