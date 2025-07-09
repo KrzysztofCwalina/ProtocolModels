@@ -2,7 +2,7 @@
 
 public class PoleModel 
 {
-    ExtensionProperties _extensions = new();
+    RecordStore _extensions = new();
 
     public string Name
     {

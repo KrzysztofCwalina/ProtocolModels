@@ -8,9 +8,9 @@ using System.Text.Json;
 // I think it's too complex
 public class SimpleModel: JsonModel<SimpleModel>
 {
-    private ExtensionProperties _extensions = new();
+    private RecordStore _extensions = new();
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public ref ExtensionProperties Extensions => ref _extensions;
+    public ref RecordStore Extensions => ref _extensions;
 
     public string? Category { get; set; }
     public int Id { get; set; } = 0;
@@ -116,7 +116,7 @@ public class SimpleModel: JsonModel<SimpleModel>
 public class SubModel
 {
     [EditorBrowsable(EditorBrowsableState.Never)]
-    public ExtensionProperties __extensions { get; } = new();
+    public RecordStore __extensions { get; } = new();
 
     public int Foo { get; set; } = 0;
     public string Bar { get; set; } = String.Empty;

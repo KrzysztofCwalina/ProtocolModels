@@ -9,7 +9,7 @@ using System.Text.Json;
 namespace System.ClientModel.Primitives;
 
 // this is a datastructure for efficiently storing JSON properties using Dictionary
-public partial struct AdditionalProperties
+public partial struct DictionaryStore
 {
     // Value kinds for encoding type information in byte arrays
     private enum ValueKind : byte

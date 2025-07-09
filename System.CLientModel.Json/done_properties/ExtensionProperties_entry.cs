@@ -5,7 +5,7 @@ using System.Text.Json;
 
 namespace System.ClientModel.Primitives;
 
-public partial struct ExtensionProperties
+public partial struct RecordStore
 {
     internal enum ValueKind : byte
     {

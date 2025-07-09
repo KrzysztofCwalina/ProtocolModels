@@ -10,12 +10,12 @@ BenchmarkRunner.Run<BuifferVsDictionary>();
 public class BuifferVsDictionary
 {
     Dictionary<string, int> _dictionary = new();
-    ExtensionProperties _buffer = new();
-    AdditionalProperties _additionalProperties = new();
+    RecordStore _buffer = new();
+    DictionaryStore _additionalProperties = new();
     byte[] _sequential;
     int _sequentialIndex;
 
-    int max = 2;
+    int max = 3;
     byte[] maxUtf8;
     string maxString;
 
@@ -39,16 +39,16 @@ public class BuifferVsDictionary
     }
 
     [Benchmark]
-    public bool Dictionary() => _dictionary.ContainsKey(maxString);
+    public bool RawDictionaryContains() => _dictionary.ContainsKey(maxString);
 
     [Benchmark]
-    public bool Buffer() => _buffer.Contains(maxUtf8);
+    public bool CustomRecordStoreContains() => _buffer.Contains(maxUtf8);
 
     [Benchmark]
-    public bool AdditionalProperties() => _additionalProperties.Contains(maxUtf8);
+    public bool DictionaryBasedStoreContains() => _additionalProperties.Contains(maxUtf8);
 
     [Benchmark]
-    public bool Sequential() => _sequential.AsSpan(0, _sequentialIndex).IndexOf(maxUtf8) != -1;
+    public bool SequentialNamesContains() => _sequential.AsSpan(0, _sequentialIndex).IndexOf(maxUtf8) != -1;
 
     [Benchmark]
     public bool AllocateDictionaryAndAdd()
@@ -59,17 +59,17 @@ public class BuifferVsDictionary
     }
 
     [Benchmark]
-    public bool AllocateBufferAndAdd()
+    public bool AllocateCustomRecordStoreAndAdd()
     {
-        ExtensionProperties buffer = new();
+        RecordStore buffer = new();
         buffer.Set("P1"u8, max);
         return buffer.Contains(maxUtf8);
     }
 
     [Benchmark]
-    public bool AllocateAdditionalPropertiesAndAdd()
+    public bool AllocateDictionaryBasedStoreAndAdd()
     {
-        AdditionalProperties additionalProps = new();
+        DictionaryStore additionalProps = new();
         additionalProps.Set("P1"u8, max);
         return additionalProps.Contains(maxUtf8);
     }

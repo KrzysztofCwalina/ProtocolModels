@@ -7,7 +7,7 @@ using System.Text.Json;
 
 namespace System.ClientModel.Primitives;
 
-public partial struct ExtensionProperties
+public partial struct RecordStore
 {
     public bool Contains(ReadOnlySpan<byte> name)
         => IndexOf(name) >= 0;

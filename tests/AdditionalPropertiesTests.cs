@@ -6,7 +6,7 @@ using System.Text;
 using System.IO;
 using System.Collections.Generic;
 using System.Reflection;
-using AdditionalPropertiesType = System.ClientModel.Primitives.AdditionalProperties;
+using AdditionalPropertiesType = System.ClientModel.Primitives.DictionaryStore;
 
 namespace AdditionalProperties.Tests;
 

@@ -8,7 +8,7 @@ using System.Text.Json;
 namespace System.ClientModel.Primitives;
 
 // this is a datastructure for efficiently storing JSON properties
-public partial struct ExtensionProperties
+public partial struct RecordStore
 {
     // this is either null (empty) or the first property contains the count of properties (including count property)
     private PropertyRecord[] _entries;
