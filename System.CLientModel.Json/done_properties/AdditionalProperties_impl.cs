@@ -10,26 +10,49 @@ namespace System.ClientModel.Primitives;
 // this is a datastructure for efficiently storing JSON properties using Dictionary
 public partial struct AdditionalProperties
 {
-    // Dictionary-based storage instead of PropertyRecord[]
-    private Dictionary<string, object>? _properties;
+    // Dictionary-based storage using UTF8 byte arrays as keys
+    private Dictionary<byte[], object>? _properties;
+
+    // Custom equality comparer for byte arrays to enable content-based comparison
+    private sealed class ByteArrayEqualityComparer : IEqualityComparer<byte[]>
+    {
+        public static readonly ByteArrayEqualityComparer Instance = new();
+
+        public bool Equals(byte[]? x, byte[]? y)
+        {
+            if (ReferenceEquals(x, y)) return true;
+            if (x is null || y is null) return false;
+            return x.AsSpan().SequenceEqual(y.AsSpan());
+        }
+
+        public int GetHashCode(byte[] obj)
+        {
+            if (obj is null) return 0;
+            
+            // Simple hash code implementation for byte arrays
+            var hash = new HashCode();
+            hash.AddBytes(obj);
+            return hash.ToHashCode();
+        }
+    }
 
     private void Set(ReadOnlySpan<byte> name, object value)
     {
         if (_properties == null)
         {
-            _properties = new Dictionary<string, object>();
+            _properties = new Dictionary<byte[], object>(ByteArrayEqualityComparer.Instance);
         }
         
-        string nameStr = Encoding.UTF8.GetString(name);
-        _properties[nameStr] = value;
+        byte[] nameBytes = name.ToArray();
+        _properties[nameBytes] = value;
     }
 
     private object Get(ReadOnlySpan<byte> name)
     {
         if (_properties == null) ThrowPropertyNotFoundException(name);
         
-        string nameStr = Encoding.UTF8.GetString(name);
-        if (!_properties.TryGetValue(nameStr, out object? value))
+        byte[] nameBytes = name.ToArray();
+        if (!_properties.TryGetValue(nameBytes, out object? value))
         {
             ThrowPropertyNotFoundException(name);
         }
@@ -44,7 +67,8 @@ public partial struct AdditionalProperties
         
         foreach (var kvp in _properties)
         {
-            WriteObjectAsJson(writer, kvp.Key, kvp.Value);
+            string propertyName = Encoding.UTF8.GetString(kvp.Key);
+            WriteObjectAsJson(writer, propertyName, kvp.Value);
         }
     }
 
@@ -59,7 +83,8 @@ public partial struct AdditionalProperties
         {
             if (!first) sb.AppendLine(",");
             first = false;
-            sb.Append(kvp.Key);
+            string propertyName = Encoding.UTF8.GetString(kvp.Key);
+            sb.Append(propertyName);
             sb.Append(": ");
             sb.Append(kvp.Value.ToString());
         }
