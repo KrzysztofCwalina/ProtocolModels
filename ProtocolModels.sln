@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.14.36109.1
+# Visual Studio Version 18
+VisualStudioVersion = 18.0.10802.20 main
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ProtocolModels", "src\ProtocolModels.csproj", "{7BA028AA-3655-5713-938C-294024D58260}"
 EndProject
@@ -10,6 +10,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "System.CLientModel.Json", "System.CLientModel.Json\System.CLientModel.Json.csproj", "{4B8CD3B3-55B5-4D49-A69D-27F135E75742}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "System.ClientModel.Proxies", "System.ClientModel.Proxies\System.ClientModel.Proxies.csproj", "{68860569-0492-4086-9ED6-95A7DD8EACD5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bench", "Bench\Bench.csproj", "{FD9C7131-B263-46FF-9E7F-F8B24177D5EB}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -33,6 +35,10 @@ Global
 		{68860569-0492-4086-9ED6-95A7DD8EACD5}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{68860569-0492-4086-9ED6-95A7DD8EACD5}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{68860569-0492-4086-9ED6-95A7DD8EACD5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FD9C7131-B263-46FF-9E7F-F8B24177D5EB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FD9C7131-B263-46FF-9E7F-F8B24177D5EB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FD9C7131-B263-46FF-9E7F-F8B24177D5EB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FD9C7131-B263-46FF-9E7F-F8B24177D5EB}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

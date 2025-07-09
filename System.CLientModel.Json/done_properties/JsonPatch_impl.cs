@@ -8,12 +8,10 @@ using System.Text.Json;
 namespace System.ClientModel.Primitives;
 
 // this is a datastructure for efficiently storing JSON properties
-public partial struct JsonPatch
+public partial struct ExtensionProperties
 {
     // this is either null (empty) or the first property contains the count of properties (including count property)
     private PropertyRecord[] _entries;
-
-    public int Count => PrivateCount - 1;
 
     private int IndexOf(ReadOnlySpan<byte> name)
     {
@@ -70,9 +68,6 @@ public partial struct JsonPatch
         if (index < 0) ThrowPropertyNotFoundException(name);
         return _entries[index];
     }
-
-    public bool Contains(ReadOnlySpan<byte> name)
-        => IndexOf(name) >= 0;
 
     [EditorBrowsable(EditorBrowsableState.Never)]
     public void Write(Utf8JsonWriter writer)

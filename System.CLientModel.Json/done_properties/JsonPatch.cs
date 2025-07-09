@@ -7,8 +7,11 @@ using System.Text.Json;
 
 namespace System.ClientModel.Primitives;
 
-public partial struct JsonPatch
+public partial struct ExtensionProperties
 {
+    public bool Contains(ReadOnlySpan<byte> name)
+        => IndexOf(name) >= 0;
+
     // TODO: can set support json pointer?
     // System.String
     public void Set(ReadOnlySpan<byte> name, string value)

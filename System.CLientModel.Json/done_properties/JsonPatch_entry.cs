@@ -5,9 +5,9 @@ using System.Text.Json;
 
 namespace System.ClientModel.Primitives;
 
-public partial struct JsonPatch
+public partial struct ExtensionProperties
 {
-    private enum ValueKind : byte
+    internal enum ValueKind : byte
     {
         Json = 1,
         Int32 = 2,
@@ -20,8 +20,9 @@ public partial struct JsonPatch
         // TODO: add support for arrays?
     }
     // value_offset (2 bytes) | value kind (1 byte) | 1 byte (reserved) |name (variable length) | value (variable length)
-    private readonly struct PropertyRecord
+    internal readonly struct PropertyRecord
     {
+        // TODO: maybe allow more than one record in a single byte[]. So that an array of records in a single byte[]
         private readonly byte[] _buffer;
 
         private const int KindOffset = 2;
@@ -56,7 +57,7 @@ public partial struct JsonPatch
             }
         }
 
-        private Span<byte> ValueBuffer => _buffer.AsSpan(ValueOffset);
+        internal Span<byte> ValueBuffer => _buffer.AsSpan(ValueOffset);
 
         public bool EqualsName(ReadOnlySpan<byte> name)
         {
